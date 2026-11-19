@@ -3,7 +3,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from dossier.downloader.api import DownloadStateJson
-from tests.backend.conftest import wait_for_link
+from tests.backend.conftest import store_messages, wait_for_link
 from tests.backend.fake_downloader import FakeDownloaderServer
 from tests.backend.rpc import list_chats, progress, request
 
@@ -28,7 +28,9 @@ def test_media_turned_on_is_stored_before_the_downloader_gets_the_notice(
     assert media_at_notice == 1
 
 
-def test_list_chats_shows_the_state_from_the_downloader(linked_client: TestClient) -> None:
+def test_reported_state_wins_over_the_stored_messages(linked_client: TestClient, database_path: Path) -> None:
+    store_messages(database_path, 1001, 3)
+
     with linked_client.websocket_connect("/api/ws_jsonrpc") as websocket:
         chats = list_chats(websocket)
 
@@ -80,8 +82,22 @@ def test_downloader_restart_brings_a_new_snapshot_to_the_ui(
         )
         try:
             assert wait_for_link(linked_client, 200).status_code == 200
-            states = progress(websocket, 1001, 1)
+            states = progress(websocket, 1001, 2)
         finally:
             restarted.stop()
 
-    assert states[0]["messages_count"] == 9
+    assert states[0]["complete"] is None
+    assert states[1]["messages_count"] == 9
+
+
+def test_lost_downloader_leaves_no_download_status(
+    linked_client: TestClient, fake_downloader: FakeDownloaderServer
+) -> None:
+    with linked_client.websocket_connect("/api/ws_jsonrpc") as websocket:
+        list_chats(websocket)
+        fake_downloader.stop()
+        states = progress(websocket, 1001, 1)
+        chats = list_chats(websocket)
+
+    assert states == [{"messages_count": 0, "oldest_message_date": None, "newest_message_date": None, "complete": None}]
+    assert next(chat for chat in chats if chat["id"] == 1001)["state"]["complete"] is None

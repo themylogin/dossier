@@ -41,6 +41,26 @@ describe('ChatListItem', () => {
     expect(screen.getByText('Group chat')).toBeInTheDocument();
   });
 
+  it('shows no download status when no downloader reports the chat', () => {
+    const chat = {
+      id: 123,
+      name: 'Test Chat',
+      settings: { media: false },
+      state: {
+        messages_count: 100,
+        oldest_message_date: '2024-01-01T00:00:00Z',
+        newest_message_date: '2024-01-24T00:00:00Z',
+        complete: null
+      }
+    };
+
+    render(<ChatListItem chat={chat} {...defaultProps} />);
+
+    expect(screen.queryByText('⏳')).not.toBeInTheDocument();
+    expect(screen.queryByText('✓')).not.toBeInTheDocument();
+    expect(screen.getByText(/Jan 1, 2024 - Jan 24, 2024, \d{2}:\d{2} \(100\)/)).toBeInTheDocument();
+  });
+
   it('renders download info when download is active', () => {
     const chat = {
       id: 123,

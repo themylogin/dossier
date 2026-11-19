@@ -24,8 +24,8 @@ def database_path(tmp_path: Path) -> Path:
     with Session(engine) as session, session.begin():
         session.add_all(
             [
-                models.Chat(chat_id=-2001, name="Family", download_media=False),
-                models.Chat(chat_id=1001, name="Alice Smith", download_media=False),
+                models.Chat(chat_id=-2001, name="Family", type="group", tracked=True, download_media=False),
+                models.Chat(chat_id=1001, name="Alice Smith", type="user", tracked=True, download_media=False),
             ]
         )
     engine.dispose()
@@ -36,6 +36,22 @@ def database_path(tmp_path: Path) -> Path:
 def client(database_path: Path) -> Iterator[TestClient]:
     with TestClient(create_app(f"sqlite:///{database_path}", "ws://127.0.0.1:9")) as test_client:
         yield test_client
+
+
+def store_messages(database_path: Path, chat_id: int, count: int) -> None:
+    engine = create_database_engine(f"sqlite:///{database_path}")
+    with Session(engine) as session, session.begin():
+        session.add_all(
+            models.Message(
+                chat_id=chat_id,
+                message_id=number,
+                date=f"2024-01-0{number}T10:00:00+00:00",
+                text=f"message {number}",
+                has_media=False,
+            )
+            for number in range(1, count + 1)
+        )
+    engine.dispose()
 
 
 def wait_for_link(client: TestClient, status: int) -> Response:

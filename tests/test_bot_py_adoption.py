@@ -1,11 +1,11 @@
 from pathlib import Path
 import sqlite3
 
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 from sqlalchemy.orm import Session
 
 from dossier.database import create_database_engine
-from dossier.models import Chat, Message
+from dossier.models import Chat, Message, User
 from tests.migrate import migrate
 
 
@@ -58,6 +58,7 @@ def create_bot_py_database(path: Path) -> None:
     connection.execute(
         "INSERT INTO chats (chat_id, name, type, tracked, downloads_media) VALUES (-2001, 'Family', 'group', 1, 1)"
     )
+    connection.execute("INSERT INTO users (user_id, username, first_name, is_bot) VALUES (77, 'ann', 'Ann', 0)")
     for message_id in (1, 2, 3):
         connection.execute(
             "INSERT INTO messages (chat_id, message_id, date, text, has_media) VALUES (?, ?, ?, ?, 0)",
@@ -80,6 +81,16 @@ def test_database_from_bot_py_is_adopted(tmp_path: Path) -> None:
         version = session.connection().exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
         message_ids = session.scalars(select(Message.message_id).order_by(Message.message_id)).all()
         chat = session.get_one(Chat, -2001)
-    assert version == "0002"
+        user = session.get_one(User, 77)
+    inspector = inspect(engine)
+    not_null = {
+        table: {column["name"] for column in inspector.get_columns(table) if not column["nullable"]}
+        for table in ("messages", "chats", "users")
+    }
+    assert version == "0003"
     assert message_ids == [1, 2, 3]
     assert chat.download_media
+    assert user.first_name == "Ann"
+    assert not_null["messages"] >= {"date", "text", "has_media", "created_at"}
+    assert not_null["chats"] >= {"name", "type", "tracked", "download_media", "first_seen_at", "updated_at"}
+    assert not_null["users"] >= {"is_bot", "first_seen_at", "updated_at"}

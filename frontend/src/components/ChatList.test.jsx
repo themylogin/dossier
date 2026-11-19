@@ -195,4 +195,66 @@ describe('ChatList', () => {
     expect(screen.getByTestId('chat-item-200')).toBeInTheDocument();
     expect(screen.getByTestId('chat-item-300')).toBeInTheDocument();
   });
+
+  describe('order', () => {
+    const chat = (id, name, newestMessageDate, complete = true) => ({
+      id,
+      name,
+      settings: { media: false },
+      state: {
+        messages_count: newestMessageDate ? 1 : 0,
+        oldest_message_date: newestMessageDate,
+        newest_message_date: newestMessageDate,
+        complete
+      }
+    });
+
+    const shownIds = () =>
+      screen.getAllByTestId(/^chat-item-/).map((item) => item.getAttribute('data-testid'));
+
+    it('shows the chat with the newest message first and chats without messages last', () => {
+      const chats = [
+        chat(1, 'A', '2026-05-20T10:00:00Z'),
+        chat(2, 'B', '2026-05-22T10:00:00Z'),
+        chat(3, 'C', null, false)
+      ];
+
+      render(<ChatList {...defaultProps} chats={chats} />);
+
+      expect(shownIds()).toEqual(['chat-item-2', 'chat-item-1', 'chat-item-3']);
+    });
+
+    it('ignores the download status', () => {
+      const chats = [chat(1, 'A', '2026-05-20T10:00:00Z', false), chat(2, 'B', '2026-05-22T10:00:00Z', true)];
+
+      render(<ChatList {...defaultProps} chats={chats} />);
+
+      expect(shownIds()).toEqual(['chat-item-2', 'chat-item-1']);
+    });
+
+    it('compares dates with different offsets as points in time', () => {
+      const chats = [chat(1, 'A', '2026-05-22T12:00:00+02:00'), chat(2, 'B', '2026-05-22T11:00:00Z')];
+
+      render(<ChatList {...defaultProps} chats={chats} />);
+
+      expect(shownIds()).toEqual(['chat-item-2', 'chat-item-1']);
+    });
+
+    it('orders chats with the same date by name', () => {
+      const chats = [chat(1, 'Bob', '2026-05-22T10:00:00Z'), chat(2, 'Alice', '2026-05-22T10:00:00Z')];
+
+      render(<ChatList {...defaultProps} chats={chats} />);
+
+      expect(shownIds()).toEqual(['chat-item-2', 'chat-item-1']);
+    });
+
+    it('moves a chat when progress brings a newer message', () => {
+      const chats = [chat(1, 'A', '2026-05-20T10:00:00Z'), chat(2, 'B', '2026-05-22T10:00:00Z')];
+      const { rerender } = render(<ChatList {...defaultProps} chats={chats} />);
+
+      rerender(<ChatList {...defaultProps} chats={[chat(1, 'A', '2026-05-23T10:00:00Z', false), chats[1]]} />);
+
+      expect(shownIds()).toEqual(['chat-item-1', 'chat-item-2']);
+    });
+  });
 });

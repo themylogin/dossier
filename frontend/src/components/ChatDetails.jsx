@@ -23,8 +23,7 @@ export function ChatDetails({ selectedChat }) {
     );
   }
 
-  // Chat is being downloaded
-  if (!selectedChat.state?.complete) {
+  if (selectedChat.state?.complete === false) {
     const state = selectedChat.state;
 
     const messageCount = state?.messages_count?.toLocaleString() || '0';
@@ -58,8 +57,8 @@ export function ChatDetails({ selectedChat }) {
     );
   }
 
-  // Chat download is complete
   const state = selectedChat.state;
+  const complete = state?.complete === true;
   const messageCount = state?.messages_count?.toLocaleString() || '0';
 
   const oldestDate = formatDate(state?.oldest_message_date);
@@ -72,9 +71,9 @@ export function ChatDetails({ selectedChat }) {
           <h2>{selectedChat.name || 'Unnamed Chat'}</h2>
         </div>
         <div className="chat-details-body">
-          <div className="info-message success">
-            <div className="download-complete-icon">✓</div>
-            <p>The chat is downloaded</p>
+          <div className={complete ? 'info-message success' : 'info-message'}>
+            {complete && <div className="download-complete-icon">✓</div>}
+            {complete && <p>The chat is downloaded</p>}
             <div className="download-stats">
               <div className="stat-item">
                 <span className="stat-label">Messages:</span>

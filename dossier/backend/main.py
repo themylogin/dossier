@@ -21,7 +21,10 @@ def create_app(database_url: str, downloader_url: str) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         task = asyncio.create_task(
-            downloader_api.run({"chat_states": api.chat_states, "chat_download_progress": api.chat_download_progress})
+            downloader_api.run(
+                {"chat_states": api.chat_states, "chat_download_progress": api.chat_download_progress},
+                api.downloader_disconnected,
+            )
         )
         yield
         task.cancel()

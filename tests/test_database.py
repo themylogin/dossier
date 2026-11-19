@@ -2,11 +2,13 @@ from pathlib import Path
 
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
+import pytest
 from sqlalchemy import event, inspect
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from dossier.database import create_database_engine
-from dossier.models import Base, Chat
+from dossier.models import Base, Chat, Message
 from tests.migrate import migrate
 
 
@@ -23,7 +25,7 @@ def test_empty_data_folder_gets_the_newest_schema(tmp_path: Path) -> None:
         version = connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
     assert database_path.exists()
     assert tables == {"alembic_version", "chats", "messages", "users"}
-    assert version == "0002"
+    assert version == "0003"
 
 
 def test_models_match_the_migrations(tmp_path: Path) -> None:
@@ -61,6 +63,16 @@ def test_write_transaction_starts_with_begin_immediate(tmp_path: Path) -> None:
     )
 
     with Session(engine) as session, session.begin():
-        session.add(Chat(chat_id=1, name="Alice", download_media=False))
+        session.add(Chat(chat_id=1, name="Alice", type="user", tracked=True, download_media=False))
 
     assert statements.index("BEGIN IMMEDIATE") < statements.index("COMMIT")
+
+
+def test_message_without_a_date_is_rejected(tmp_path: Path) -> None:
+    database_url = f"sqlite:///{tmp_path / 'messages.db'}"
+    migrate(database_url)
+    engine = create_database_engine(database_url)
+
+    with pytest.raises(IntegrityError, match="NOT NULL constraint failed: messages.date"):
+        with Session(engine) as session, session.begin():
+            session.add(Message(chat_id=-2001, message_id=1, text="hello", has_media=False))

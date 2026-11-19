@@ -16,7 +16,9 @@ class DownloaderApiClient:
         self.url = url
         self.connection: ClientConnection | None = None
 
-    async def run(self, methods: Mapping[str, Callable[..., Awaitable[Result]]]) -> None:
+    async def run(
+        self, methods: Mapping[str, Callable[..., Awaitable[Result]]], on_disconnect: Callable[[], Awaitable[None]]
+    ) -> None:
         while True:
             try:
                 async with connect(self.url) as connection:
@@ -27,8 +29,9 @@ class DownloaderApiClient:
                             await async_dispatch(message, methods=methods)
             except (OSError, WebSocketException) as error:
                 logger.warning(f"No connection to the downloader at {self.url}: {error}")
-            finally:
+            if self.connection is not None:
                 self.connection = None
+                await on_disconnect()
             await asyncio.sleep(1)
 
     async def settings_changed(self, chat_id: int) -> None:

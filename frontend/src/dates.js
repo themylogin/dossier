@@ -1,4 +1,4 @@
-function parseDate(value) {
+export function parseDate(value) {
   if (!value) {
     return null;
   }

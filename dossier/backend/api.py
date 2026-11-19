@@ -1,7 +1,7 @@
 from fastapi.concurrency import run_in_threadpool
 from jsonrpcserver import Error, InvalidParams, Result, Success
 from pydantic import ValidationError
-from sqlalchemy import Engine, select, update
+from sqlalchemy import ColumnElement, Engine, func, select
 from sqlalchemy.orm import Session
 
 from dossier import models
@@ -18,37 +18,65 @@ class BackendApi:
         self.downloader_api = downloader_api
         self.states: dict[int, DownloadState] = {}
 
-    def read_chats(self) -> list[models.Chat]:
+    def read_chats(self, *conditions: ColumnElement[bool]) -> list[Chat]:
+        statement = (
+            select(
+                models.Chat, func.count(models.Message.id), func.min(models.Message.date), func.max(models.Message.date)
+            )
+            .outerjoin(models.Message, models.Message.chat_id == models.Chat.chat_id)
+            .where(*conditions)
+            .group_by(models.Chat.chat_id)
+        )
         with Session(self.engine) as session:
-            return list(session.scalars(select(models.Chat).order_by(models.Chat.name)))
+            return [self.to_chat(*row) for row in session.execute(statement)]
 
-    def store_media_setting(self, chat_id: int, media: bool) -> models.Chat | None:
-        with Session(self.engine, expire_on_commit=False) as session, session.begin():
-            session.execute(update(models.Chat).where(models.Chat.chat_id == chat_id).values(download_media=media))
-            return session.get(models.Chat, chat_id)
+    def store_media_setting(self, chat_id: int, media: bool) -> bool:
+        with Session(self.engine) as session, session.begin():
+            chat = session.get(models.Chat, chat_id)
+            if chat is None:
+                return False
+            chat.download_media = media
+        return True
 
-    def to_chat(self, row: models.Chat) -> Chat:
+    def to_chat(
+        self, row: models.Chat, messages_count: int, oldest_message_date: str | None, newest_message_date: str | None
+    ) -> Chat:
+        state = self.states.get(row.chat_id)
+        if state is None:
+            state = DownloadState.model_validate(
+                {
+                    "messages_count": messages_count,
+                    "oldest_message_date": oldest_message_date,
+                    "newest_message_date": newest_message_date,
+                }
+            )
         return Chat(
             id=row.chat_id,
-            name=row.name or "",
-            settings=ChatSettings(media=bool(row.download_media)),
-            state=self.states.get(row.chat_id, DownloadState()),
+            name=row.name,
+            settings=ChatSettings(media=row.download_media),
+            state=state,
         )
 
     async def list_chats(self) -> Result:
-        rows = await run_in_threadpool(self.read_chats)
-        return Success({"chats": [self.to_chat(row).model_dump(mode="json") for row in rows]})
+        chats = await run_in_threadpool(self.read_chats)
+        return Success({"chats": [chat.model_dump(mode="json") for chat in chats]})
 
     async def update_chat(self, id: object, settings: object) -> Result:
         try:
             params = UpdateChatParams.model_validate({"id": id, "settings": settings})
         except ValidationError:
             return InvalidParams()
-        row = await run_in_threadpool(self.store_media_setting, params.id, params.settings.media)
-        if row is None:
+        if not await run_in_threadpool(self.store_media_setting, params.id, params.settings.media):
             return Error(-32602, f"Chat {params.id} not found")
         await self.downloader_api.settings_changed(params.id)
-        return Success(self.to_chat(row).model_dump(mode="json"))
+        chats = await run_in_threadpool(self.read_chats, models.Chat.chat_id == params.id)
+        return Success(chats[0].model_dump(mode="json"))
+
+    async def downloader_disconnected(self) -> None:
+        chat_ids = list(self.states)
+        self.states.clear()
+        for chat in await run_in_threadpool(self.read_chats, models.Chat.chat_id.in_(chat_ids)):
+            await self.hub.publish(chat.id, chat.state)
 
     async def chat_states(self, chats: list[ChatStateJson]) -> Result:
         for chat in chats:

@@ -1,6 +1,16 @@
 import React from 'react';
 import { formatDate, formatDateTime } from '../dates';
 
+function DownloadStatus({ complete }) {
+  if (complete === true) {
+    return <><span className="download-complete">✓</span>{' '}</>;
+  }
+  if (complete === false) {
+    return <><span className="download-spinner">⏳</span>{' '}</>;
+  }
+  return null;
+}
+
 /**
  * Individual chat item component
  *
@@ -60,12 +70,7 @@ export function ChatListItem({ chat, isSelected, onClick, onContextMenu, getAvat
         <div className="chat-subtitle">
           {downloadInfo ? (
             <span className="download-info">
-              {downloadInfo.complete ? (
-                <span className="download-complete">✓</span>
-              ) : (
-                <span className="download-spinner">⏳</span>
-              )}
-              {' '}
+              <DownloadStatus complete={downloadInfo.complete} />
               {downloadInfo.text}
             </span>
           ) : (

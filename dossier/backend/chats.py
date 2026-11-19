@@ -11,7 +11,7 @@ class DownloadState(BaseModel):
     messages_count: int = 0
     oldest_message_date: datetime | None = None
     newest_message_date: datetime | None = None
-    complete: bool = False
+    complete: bool | None = None
 
 
 class Chat(BaseModel):

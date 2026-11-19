@@ -2,7 +2,6 @@ from datetime import UTC
 import logging
 import os
 from pathlib import Path
-import time
 
 from sqlalchemy import Engine, func, select
 from sqlalchemy.dialects.sqlite import insert
@@ -28,7 +27,7 @@ class Downloader:
         self.complete: set[int] = set()
         self.seen_sender_ids: set[int] = set()
         self.known_chat_ids: set[int] = set()
-        self.media_flags: dict[int, bool | None] | None = None
+        self.media_flags: dict[int, bool] | None = None
 
     def initial_states(self) -> dict[int, DownloadStateJson]:
         with Session(self.engine) as session:
@@ -136,7 +135,7 @@ class Downloader:
         if self.media_flags is None:
             with Session(self.engine) as session:
                 self.media_flags = dict(session.execute(select(Chat.chat_id, Chat.download_media)).all())
-        return bool(self.media_flags.get(chat_id))
+        return self.media_flags.get(chat_id, False)
 
     async def store_message(self, message: TelegramMessage) -> None:
         sender = await self.fetch_new_sender(message)
@@ -172,12 +171,10 @@ class Downloader:
         else:
             return None, None
 
-        timestamp = time.time()
-        if message.date:
-            date = message.date
-            if date.tzinfo is None:
-                date = date.replace(tzinfo=UTC)
-            timestamp = date.timestamp()
+        date = message.date
+        if date.tzinfo is None:
+            date = date.replace(tzinfo=UTC)
+        timestamp = date.timestamp()
 
         file_path = self.hierarchical_path(message.chat_id, message.id, filename)
         try:
@@ -267,13 +264,10 @@ class Downloader:
     def save_message(
         self, session: Session, message: TelegramMessage, media_type: str | None, media_path: str | None
     ) -> None:
-        date = None
-        if message.date:
-            date = message.date.isoformat()
         statement = insert(Message).values(
             chat_id=message.chat_id,
             message_id=message.id,
-            date=date,
+            date=message.date.isoformat(),
             text=message.text or "",
             sender_id=message.sender_id,
             grouped_id=getattr(message, "grouped_id", None),

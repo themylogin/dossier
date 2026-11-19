@@ -1,5 +1,14 @@
 import React from 'react';
 import { ChatListItem } from './ChatListItem';
+import { parseDate } from '../dates';
+
+function newestTime(chat) {
+  return parseDate(chat.state?.newest_message_date)?.getTime() ?? -Infinity;
+}
+
+function compareChats(first, second) {
+  return newestTime(second) - newestTime(first) || first.name.localeCompare(second.name);
+}
 
 /**
  * Chat list component
@@ -26,9 +35,9 @@ export function ChatList({
   getAvatarColor,
   getInitials
 }) {
-  const filteredChats = chats.filter(chat =>
-    chat.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredChats = chats
+    .filter(chat => chat.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort(compareChats);
 
   if (loading) {
     return (

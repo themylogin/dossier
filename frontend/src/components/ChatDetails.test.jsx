@@ -15,6 +15,30 @@ describe('ChatDetails', () => {
     expect(screen.getByText('💬')).toBeInTheDocument();
   });
 
+  it('shows the stats without a download status when no downloader reports the chat', () => {
+    const chat = {
+      id: 123,
+      name: 'Test Chat',
+      settings: { media: false },
+      state: {
+        messages_count: 1500,
+        oldest_message_date: '2024-01-01T00:00:00Z',
+        newest_message_date: '2024-01-24T00:00:00Z',
+        complete: null
+      }
+    };
+
+    render(<ChatDetails {...defaultProps} selectedChat={chat} />);
+
+    expect(screen.getByText('Test Chat')).toBeInTheDocument();
+    expect(screen.queryByText('The chat is being downloaded, please wait...')).not.toBeInTheDocument();
+    expect(screen.queryByText('The chat is downloaded')).not.toBeInTheDocument();
+    expect(screen.queryByText('⏳')).not.toBeInTheDocument();
+    expect(screen.queryByText('✓')).not.toBeInTheDocument();
+    expect(screen.getByText('1,500')).toBeInTheDocument();
+    expect(screen.getByText(/Jan 1, 2024 - Jan 24, 2024/)).toBeInTheDocument();
+  });
+
   it('shows downloading state with progress stats', () => {
     const chat = {
       id: 123,
@@ -123,7 +147,7 @@ describe('ChatDetails', () => {
     expect(screen.getByText('? - ?')).toBeInTheDocument();
   });
 
-  it('handles download without state property', () => {
+  it('shows no download status for a chat without a state', () => {
     const chat = {
       id: 123,
       name: 'Test Chat',
@@ -133,8 +157,8 @@ describe('ChatDetails', () => {
 
     render(<ChatDetails {...defaultProps} selectedChat={chat} />);
 
-    // Should show downloading state with default values
-    expect(screen.getByText('The chat is being downloaded, please wait...')).toBeInTheDocument();
+    expect(screen.queryByText('The chat is being downloaded, please wait...')).not.toBeInTheDocument();
+    expect(screen.queryByText('The chat is downloaded')).not.toBeInTheDocument();
     expect(screen.getByText('0')).toBeInTheDocument();
     expect(screen.getByText('? - ?')).toBeInTheDocument();
   });

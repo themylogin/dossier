@@ -6,6 +6,7 @@ from sqlalchemy import Engine, event
 from sqlalchemy.pool import ConnectionPoolEntry
 
 from dossier.backend.main import create_app
+from tests.backend.conftest import store_messages
 from tests.backend.rpc import list_chats, request
 
 
@@ -29,14 +30,14 @@ def test_unknown_method_gets_an_error_and_the_connection_stays_open(client: Test
     assert chats
 
 
-def test_list_chats_returns_every_chat_in_the_database_by_name(client: TestClient) -> None:
+def test_list_chats_returns_every_chat_in_the_database(client: TestClient) -> None:
     with client.websocket_connect("/api/ws_jsonrpc") as websocket:
         reply, _ = request(websocket, "list_chats")
 
     assert list(reply["result"]) == ["chats"]
-    assert [(chat["id"], chat["name"]) for chat in reply["result"]["chats"]] == [
-        (1001, "Alice Smith"),
+    assert sorted((chat["id"], chat["name"]) for chat in reply["result"]["chats"]) == [
         (-2001, "Family"),
+        (1001, "Alice Smith"),
     ]
 
 
@@ -52,13 +53,29 @@ def test_each_chat_has_id_name_settings_and_state(client: TestClient) -> None:
         assert set(chat["state"]) == {"messages_count", "oldest_message_date", "newest_message_date", "complete"}
 
 
-def test_chat_without_a_reported_state_has_the_zero_state(client: TestClient) -> None:
+def test_chat_without_a_reported_state_has_the_state_of_its_stored_messages(
+    client: TestClient, database_path: Path
+) -> None:
+    store_messages(database_path, 1001, 3)
+
+    with client.websocket_connect("/api/ws_jsonrpc") as websocket:
+        chats = list_chats(websocket)
+
+    assert next(chat for chat in chats if chat["id"] == 1001)["state"] == {
+        "messages_count": 3,
+        "oldest_message_date": "2024-01-01T10:00:00Z",
+        "newest_message_date": "2024-01-03T10:00:00Z",
+        "complete": None,
+    }
+
+
+def test_chat_without_messages_has_the_zero_state(client: TestClient) -> None:
     with client.websocket_connect("/api/ws_jsonrpc") as websocket:
         chats = list_chats(websocket)
 
     assert all(
         chat["state"]
-        == {"messages_count": 0, "oldest_message_date": None, "newest_message_date": None, "complete": False}
+        == {"messages_count": 0, "oldest_message_date": None, "newest_message_date": None, "complete": None}
         for chat in chats
     )
 
@@ -72,7 +89,7 @@ def test_turning_media_on_stores_the_setting(client: TestClient) -> None:
         "id": 1001,
         "name": "Alice Smith",
         "settings": {"media": True},
-        "state": {"messages_count": 0, "oldest_message_date": None, "newest_message_date": None, "complete": False},
+        "state": {"messages_count": 0, "oldest_message_date": None, "newest_message_date": None, "complete": None},
     }
     assert next(chat for chat in chats if chat["id"] == 1001)["settings"] == {"media": True}
 
@@ -114,6 +131,15 @@ def test_settings_survive_a_restart(database_path: Path) -> None:
             chats = list_chats(websocket)
 
     assert next(chat for chat in chats if chat["id"] == 1001)["settings"] == {"media": True}
+
+
+def test_update_chat_result_has_the_state_of_the_stored_messages(client: TestClient, database_path: Path) -> None:
+    store_messages(database_path, 1001, 3)
+
+    with client.websocket_connect("/api/ws_jsonrpc") as websocket:
+        reply, _ = request(websocket, "update_chat", {"id": 1001, "settings": {"media": True}}, request_id=2)
+
+    assert reply["result"]["state"]["messages_count"] == 3
 
 
 def test_update_chat_starts_with_begin_immediate(client: TestClient) -> None:

@@ -1,2 +1,6 @@
 .claude/
 .idea/
+/.env
+/data/
+/downloads/
+/e2e/test-results/

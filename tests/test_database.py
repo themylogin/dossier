@@ -1,0 +1,66 @@
+from pathlib import Path
+
+from alembic.autogenerate import compare_metadata
+from alembic.migration import MigrationContext
+from sqlalchemy import event, inspect
+from sqlalchemy.orm import Session
+
+from dossier.database import create_database_engine
+from dossier.models import Base, Chat
+from tests.migrate import migrate
+
+
+def test_empty_data_folder_gets_the_newest_schema(tmp_path: Path) -> None:
+    database_path = tmp_path / "messages.db"
+    database_url = f"sqlite:///{database_path}"
+
+    migrate(database_url)
+
+    engine = create_database_engine(database_url)
+
+    with engine.connect() as connection:
+        tables = set(inspect(connection).get_table_names())
+        version = connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
+    assert database_path.exists()
+    assert tables == {"alembic_version", "chats", "messages", "users"}
+    assert version == "0002"
+
+
+def test_models_match_the_migrations(tmp_path: Path) -> None:
+    database_url = f"sqlite:///{tmp_path / 'messages.db'}"
+    migrate(database_url)
+    engine = create_database_engine(database_url)
+
+    with engine.connect() as connection:
+        differences = compare_metadata(MigrationContext.configure(connection), Base.metadata)
+
+    assert differences == []
+
+
+def test_connections_use_wal_and_wait_for_locks(tmp_path: Path) -> None:
+    engine = create_database_engine(f"sqlite:///{tmp_path / 'messages.db'}")
+
+    with engine.connect() as connection:
+        journal_mode = connection.exec_driver_sql("PRAGMA journal_mode").scalar_one()
+        synchronous = connection.exec_driver_sql("PRAGMA synchronous").scalar_one()
+        busy_timeout = connection.exec_driver_sql("PRAGMA busy_timeout").scalar_one()
+
+    assert journal_mode == "wal"
+    assert synchronous == 1
+    assert busy_timeout == 5000
+
+
+def test_write_transaction_starts_with_begin_immediate(tmp_path: Path) -> None:
+    database_url = f"sqlite:///{tmp_path / 'messages.db'}"
+    migrate(database_url)
+    engine = create_database_engine(database_url)
+    engine.dispose()
+    statements: list[str] = []
+    event.listen(
+        engine, "connect", lambda dbapi_connection, record: dbapi_connection.set_trace_callback(statements.append)
+    )
+
+    with Session(engine) as session, session.begin():
+        session.add(Chat(chat_id=1, name="Alice", download_media=False))
+
+    assert statements.index("BEGIN IMMEDIATE") < statements.index("COMMIT")

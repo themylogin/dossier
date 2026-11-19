@@ -1,8 +1,42 @@
 services:
+  migrate:
+    build:
+      context: .
+      target: runtime
+    command: ["alembic", "upgrade", "head"]
+    volumes:
+      - ${DATA_DIR:-./data}:/data
+
+  downloader:
+    build:
+      context: .
+      target: runtime
+    command: ["python", "-m", "dossier.downloader", "run"]
+    environment:
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID:-}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH:-}
+      TELEGRAM_PHONE: ${TELEGRAM_PHONE:-}
+    volumes:
+      - ${DATA_DIR:-./data}:/data
+      - ${DOWNLOADS_DIR:-./downloads}:/downloads
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
   backend:
     build:
-      context: ./backend
+      context: .
       target: runtime
+    command: ["uvicorn", "dossier.backend.main:app", "--host", "0.0.0.0", "--port", "8080"]
+    environment:
+      DOWNLOADER_URL: ws://downloader:8090
+    volumes:
+      - ${DATA_DIR:-./data}:/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      downloader:
+        condition: service_started
 
   frontend:
     build:
@@ -20,10 +54,10 @@ services:
       start_period: 20s
       start_interval: 1s
 
-  backend-test:
+  test:
     profiles: [test]
     build:
-      context: ./backend
+      context: .
       target: test
 
   frontend-test:
@@ -34,14 +68,3 @@ services:
     environment:
       TZ: UTC
     command: ["npm", "run", "test:run"]
-
-  e2e:
-    profiles: [e2e]
-    build: ./e2e
-    depends_on:
-      frontend:
-        condition: service_healthy
-    init: true
-    ipc: host
-    volumes:
-      - ./e2e/test-results:/e2e/test-results

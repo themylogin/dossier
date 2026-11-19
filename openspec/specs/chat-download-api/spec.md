@@ -19,7 +19,7 @@ The backend SHALL accept WebSocket connections at `/api/ws_jsonrpc`. Each text m
 - **AND** the connection stays open
 
 ### Requirement: Chat object
-Each chat that the backend sends SHALL have `id` (the Telegram chat id, an integer), `name` (a string), `settings`, and `state`. `settings` SHALL be `{"media": <boolean>}`, where `media` tells whether the backend downloads the media of the chat. `state` SHALL be a download state.
+Each chat that the backend sends SHALL have `id` (the Telegram chat id, an integer), `name` (a string), `settings`, and `state`. `settings` SHALL be `{"media": <boolean>}`, where `media` tells whether the downloader downloads the media of the chat. `state` SHALL be a download state.
 
 #### Scenario: Chat fields
 - **WHEN** the backend sends a chat
@@ -39,15 +39,20 @@ A download state SHALL have `messages_count` (an integer), `oldest_message_date`
 - **THEN** `messages_count` is `0` and both dates are `null`
 
 ### Requirement: List chats
-The `list_chats` method SHALL take no params. It SHALL return `{"chats": [...]}` with every known chat, its current settings, and its latest download state.
+The `list_chats` method SHALL take no params. It SHALL return `{"chats": [...]}` with every chat in the downloader's database, its stored settings, and the latest state from the downloader. A chat that the downloader has not reported yet SHALL have the zero state.
 
 #### Scenario: Client lists chats
 - **WHEN** a client calls `list_chats` without params
 - **THEN** the result is an object with one member, `chats`
 - **AND** `chats` holds every known chat with its current settings and latest state
 
+#### Scenario: Chat without a reported state
+- **GIVEN** the database holds a chat that the downloader has not reported
+- **WHEN** a client calls `list_chats`
+- **THEN** the chat has `messages_count` `0`, both dates `null`, and `complete` `false`
+
 ### Requirement: Update chat settings
-The `update_chat` method SHALL take `{"id": <chat id>, "settings": {"media": <boolean>}}`. It SHALL store the settings and return the updated chat object.
+The `update_chat` method SHALL take `{"id": <chat id>, "settings": {"media": <boolean>}}`. It SHALL store the settings in the downloader's database and return the updated chat object.
 
 #### Scenario: Turn media on
 - **WHEN** a client calls `update_chat` with a known chat id and `"settings": {"media": true}`
@@ -67,6 +72,11 @@ The `update_chat` method SHALL take `{"id": <chat id>, "settings": {"media": <bo
 - **WHEN** a client calls `update_chat` with `"settings": {"media": "yes"}`
 - **THEN** the backend replies with an error with code `-32602` and message `Invalid params`
 - **AND** the chat keeps its earlier settings
+
+#### Scenario: Settings survive a restart
+- **GIVEN** a client turned media on for a chat
+- **WHEN** the backend restarts
+- **THEN** `list_chats` shows `"settings": {"media": true}` for the chat
 
 ### Requirement: Progress notifications
 When the download state of a chat changes, the backend SHALL send a `chat_download_progress` notification to every open connection. The notification SHALL have no `id`. Its params SHALL be `{"id": <chat id>, "state": <download state>}`.

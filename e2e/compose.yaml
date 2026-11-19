@@ -1,0 +1,63 @@
+name: dossier-e2e
+
+services:
+  migrate:
+    build:
+      context: ..
+      target: runtime
+    command: ["alembic", "upgrade", "head"]
+    volumes:
+      - e2e-data:/data
+
+  fake-downloader:
+    build:
+      context: ..
+      target: runtime
+    command: ["python", "-m", "dossier.downloader", "fake"]
+    volumes:
+      - e2e-data:/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  backend:
+    build:
+      context: ..
+      target: runtime
+    command: ["uvicorn", "dossier.backend.main:app", "--host", "0.0.0.0", "--port", "8080"]
+    environment:
+      DOWNLOADER_URL: ws://fake-downloader:8090
+    volumes:
+      - e2e-data:/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      fake-downloader:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ../frontend
+      target: runtime
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+      start_interval: 1s
+
+  e2e:
+    build: .
+    depends_on:
+      frontend:
+        condition: service_healthy
+    init: true
+    ipc: host
+    volumes:
+      - ./test-results:/e2e/test-results
+
+volumes:
+  e2e-data:

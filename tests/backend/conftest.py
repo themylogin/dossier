@@ -24,8 +24,8 @@ def database_path(tmp_path: Path) -> Path:
     with Session(engine) as session, session.begin():
         session.add_all(
             [
-                models.Chat(chat_id=-2001, name="Family", type="group", tracked=True, download_media=False),
-                models.Chat(chat_id=1001, name="Alice Smith", type="user", tracked=True, download_media=False),
+                models.Chat(chat_id=-2001, name="Family", type="group", download_media=False),
+                models.Chat(chat_id=1001, name="Alice Smith", type="user", download_media=False),
             ]
         )
     engine.dispose()
@@ -71,6 +71,7 @@ def fake_downloader(database_path: Path) -> Iterator[FakeDownloaderServer]:
         "newest_message_date": "2024-01-02T10:00:00+00:00",
         "files_count": 0,
         "files_pending": 0,
+        "downloaded": False,
         "complete": True,
     }
     server = FakeDownloaderServer([{"id": 1001, "state": state}], database_path)

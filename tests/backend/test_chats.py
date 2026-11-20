@@ -59,6 +59,7 @@ def test_each_chat_has_id_name_settings_and_state(client: TestClient) -> None:
             "newest_message_date",
             "files_count",
             "files_pending",
+            "downloaded",
             "complete",
         }
 
@@ -77,6 +78,7 @@ def test_chat_without_a_reported_state_has_the_state_of_its_stored_messages(
         "newest_message_date": "2024-01-03T10:00:00Z",
         "files_count": 0,
         "files_pending": 0,
+        "downloaded": False,
         "complete": None,
     }
 
@@ -93,6 +95,7 @@ def test_chat_without_messages_has_the_zero_state(client: TestClient) -> None:
             "newest_message_date": None,
             "files_count": 0,
             "files_pending": 0,
+            "downloaded": False,
             "complete": None,
         }
         for chat in chats
@@ -114,6 +117,7 @@ def test_turning_media_on_stores_the_setting(client: TestClient) -> None:
             "newest_message_date": None,
             "files_count": 0,
             "files_pending": 0,
+            "downloaded": False,
             "complete": None,
         },
     }

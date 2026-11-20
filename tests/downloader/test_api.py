@@ -13,6 +13,7 @@ def state(messages_count: int, complete: bool) -> DownloadStateJson:
         "newest_message_date": "2024-01-02T10:00:00+00:00",
         "files_count": 0,
         "files_pending": 0,
+        "downloaded": False,
         "complete": complete,
     }
 

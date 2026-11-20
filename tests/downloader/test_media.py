@@ -25,7 +25,7 @@ def engine(tmp_path: Path) -> Engine:
 
 def set_media(engine: Engine, chat_id: int, media: bool) -> None:
     with Session(engine) as session, session.begin():
-        session.merge(Chat(chat_id=chat_id, name="Family", type="group", tracked=True, download_media=media))
+        session.merge(Chat(chat_id=chat_id, name="Family", type="group", download_media=media))
 
 
 def stored_messages(engine: Engine, chat_id: int) -> Sequence[Message]:

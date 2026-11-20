@@ -27,9 +27,7 @@ class FakeDownloader:
     def store_chats(self) -> None:
         with Session(self.engine) as session, session.begin():
             for chat_id, (name, chat_type, first_message_date) in self.chats.items():
-                statement = insert(Chat).values(
-                    chat_id=chat_id, name=name, type=chat_type, tracked=True, download_media=False
-                )
+                statement = insert(Chat).values(chat_id=chat_id, name=name, type=chat_type, download_media=False)
                 session.execute(
                     statement.on_conflict_do_update(
                         index_elements=[Chat.chat_id], set_={"name": name, "type": chat_type}
@@ -45,7 +43,7 @@ class FakeDownloader:
         self.tasks[chat_id] = asyncio.create_task(self.simulate(chat_id))
 
     async def simulate(self, chat_id: int) -> None:
-        await self.api.publish(chat_id, download_state(0, None, None, 0, 0, False))
+        await self.api.publish(chat_id, download_state(0, None, None, 0, 0, False, False))
         with Session(self.engine) as session:
             media = bool(session.scalar(select(Chat.download_media).where(Chat.chat_id == chat_id)))
         files = 0
@@ -67,6 +65,7 @@ class FakeDownloader:
                     newest.replace(microsecond=0).isoformat(),
                     files,
                     pending,
+                    step == STEPS,
                     step == STEPS,
                 ),
             )

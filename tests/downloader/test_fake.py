@@ -88,6 +88,7 @@ async def test_settings_saved_reports_the_zero_state_at_once(engine: Engine) -> 
         "newest_message_date": None,
         "files_count": 0,
         "files_pending": 0,
+        "downloaded": False,
         "complete": False,
     }
 

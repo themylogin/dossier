@@ -45,7 +45,7 @@ async def test_channel_joined_in_the_main_app_downloads_in_full(engine: Engine, 
     with Session(engine) as session:
         channel = session.get_one(Chat, -1000000005001)
     assert (channel.name, channel.type, channel.download_media) == ("News", "channel", False)
-    assert client.history_requests == [(-1000000005001, "after", 0), (-1000000005001, "before", 1)]
+    assert client.history_requests == [(-1000000005001, "before", 0)]
     assert stored_message_ids(engine, -1000000005001) == list(range(1, 301))
     assert api.states_of(-1000000005001)[-1]["complete"] is True
 
@@ -99,12 +99,7 @@ async def test_channel_joined_during_the_start_up_download_downloads_after_it(en
 
     await start(Downloader(client, engine, tmp_path / "downloads", RecordingApi()))
 
-    assert client.history_requests == [
-        (-2001, "after", 0),
-        (-2001, "before", 1),
-        (-1000000005001, "after", 0),
-        (-1000000005001, "before", 1),
-    ]
+    assert client.history_requests == [(-2001, "before", 0), (-1000000005001, "before", 0)]
     assert stored_message_ids(engine, -1000000005001) == [1, 2, 3]
 
 

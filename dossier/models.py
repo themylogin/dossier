@@ -54,11 +54,8 @@ class Chat(Base):
     name: Mapped[str] = mapped_column(Text)
     type: Mapped[str] = mapped_column(Text)
     username: Mapped[str | None] = mapped_column(Text)
-    tracked: Mapped[bool] = mapped_column(Boolean)
     download_media: Mapped[bool] = mapped_column(Boolean)
-    history_checked: Mapped[bool] = mapped_column(Boolean, server_default=sql_text("0"))
-    first_seen_at: Mapped[str] = mapped_column(Text, server_default=sql_text("CURRENT_TIMESTAMP"))
-    updated_at: Mapped[str] = mapped_column(Text, server_default=sql_text("CURRENT_TIMESTAMP"))
+    downloaded: Mapped[bool] = mapped_column(Boolean, server_default=sql_text("0"))
 
 
 class User(Base):
@@ -70,8 +67,6 @@ class User(Base):
     last_name: Mapped[str | None] = mapped_column(Text)
     phone: Mapped[str | None] = mapped_column(Text)
     is_bot: Mapped[bool] = mapped_column(Boolean)
-    first_seen_at: Mapped[str] = mapped_column(Text, server_default=sql_text("CURRENT_TIMESTAMP"))
-    updated_at: Mapped[str] = mapped_column(Text, server_default=sql_text("CURRENT_TIMESTAMP"))
 
 
 def file_pending() -> ColumnElement[bool]:

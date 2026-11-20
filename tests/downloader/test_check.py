@@ -76,6 +76,6 @@ async def test_failed_download_retries_at_the_next_check(engine: Engine, tmp_pat
     await downloader.check()
     await download_queued(downloader)
 
-    assert (-2001, "after", 2) in client.history_requests
+    assert client.history_requests[-1] == (-2001, "before", 4)
     assert stored_message_ids(engine, -2001) == [1, 2, 3, 4, 5]
     assert api.states_of(-2001)[-1]["complete"] is True

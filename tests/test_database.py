@@ -27,7 +27,7 @@ def test_empty_data_folder_gets_the_newest_schema(tmp_path: Path) -> None:
         version = connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
     assert database_path.exists()
     assert tables == {"alembic_version", "chats", "message_versions", "messages", "users"}
-    assert version == "0004"
+    assert version == "0008"
 
 
 def test_models_match_the_migrations(tmp_path: Path) -> None:
@@ -65,7 +65,7 @@ def test_write_transaction_starts_with_begin_immediate(tmp_path: Path) -> None:
     )
 
     with Session(engine) as session, session.begin():
-        session.add(Chat(chat_id=1, name="Alice", type="user", tracked=True, download_media=False))
+        session.add(Chat(chat_id=1, name="Alice", type="user", download_media=False))
 
     assert statements.index("BEGIN IMMEDIATE") < statements.index("COMMIT")
 
@@ -105,3 +105,16 @@ def test_version_without_a_version_date_is_rejected(tmp_path: Path) -> None:
     with pytest.raises(IntegrityError, match="NOT NULL constraint failed: message_versions.version_date"):
         with Session(engine) as session, session.begin():
             session.add(MessageVersion(chat_id=-2001, message_id=1, text="hello", has_media=False))
+
+
+def test_chats_and_users_have_no_timestamps(tmp_path: Path) -> None:
+    database_url = f"sqlite:///{tmp_path / 'messages.db'}"
+    migrate(database_url)
+    engine = create_database_engine(database_url)
+
+    with engine.connect() as connection:
+        columns = {
+            table: {column["name"] for column in inspect(connection).get_columns(table)} for table in ("chats", "users")
+        }
+
+    assert {"first_seen_at", "updated_at"}.isdisjoint(columns["chats"] | columns["users"])

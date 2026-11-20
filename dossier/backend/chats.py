@@ -13,6 +13,7 @@ class DownloadState(BaseModel):
     newest_message_date: datetime | None = None
     files_count: int = 0
     files_pending: int = 0
+    downloaded: bool = False
     complete: bool | None = None
 
 

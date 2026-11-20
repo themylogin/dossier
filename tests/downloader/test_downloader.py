@@ -86,6 +86,7 @@ async def test_chat_up_to_date_completes_without_a_history_request(engine: Engin
             "newest_message_date": "2024-01-01T00:10:00+00:00",
             "files_count": 0,
             "files_pending": 0,
+            "downloaded": True,
             "complete": True,
         }
     ]
@@ -117,6 +118,7 @@ async def test_initial_states_come_from_the_database(engine: Engine, tmp_path: P
             "newest_message_date": "2024-01-01T00:03:00+00:00",
             "files_count": 0,
             "files_pending": 0,
+            "downloaded": True,
             "complete": False,
         }
     }

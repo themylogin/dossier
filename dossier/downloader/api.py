@@ -15,6 +15,7 @@ class DownloadStateJson(TypedDict):
     newest_message_date: str | None
     files_count: int
     files_pending: int
+    downloaded: bool
     complete: bool
 
 
@@ -29,6 +30,7 @@ def download_state(
     newest_message_date: str | None,
     files_count: int,
     files_pending: int,
+    downloaded: bool,
     complete: bool,
 ) -> DownloadStateJson:
     return {
@@ -37,6 +39,7 @@ def download_state(
         "newest_message_date": newest_message_date,
         "files_count": files_count,
         "files_pending": files_pending,
+        "downloaded": downloaded,
         "complete": complete,
     }
 

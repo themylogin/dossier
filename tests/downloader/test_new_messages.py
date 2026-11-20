@@ -55,6 +55,7 @@ async def test_message_arrives_through_a_history_request(engine: Engine, tmp_pat
         "newest_message_date": "2026-05-22T10:30:00+00:00",
         "files_count": 0,
         "files_pending": 0,
+        "downloaded": True,
         "complete": True,
     }
 
@@ -122,20 +123,20 @@ async def test_message_during_the_last_history_request_gets_one_more_pass(engine
 
     await start(Downloader(client, engine, tmp_path / "downloads", api))
 
-    assert client.history_requests == [(-2001, "after", 0), (-2001, "after", 300), (-2001, "before", 1)]
+    assert client.history_requests == [(-2001, "before", 0), (-2001, "after", 300)]
     assert stored_message_ids(engine, -2001) == list(range(1, 302))
     assert (api.states_of(-2001)[-1]["messages_count"], api.states_of(-2001)[-1]["complete"]) == (301, True)
 
 
 async def test_restart_during_a_download_leaves_no_gap(engine: Engine, tmp_path: Path) -> None:
-    def stop_at_message_101(message: SimpleNamespace) -> None:
-        if message.id == 101:
+    def stop_at_message_200(message: SimpleNamespace) -> None:
+        if message.id == 200:
             raise RuntimeError("The downloader stops")
 
     first_run = FakeClient(
         dialogs=[make_dialog(-2001, "Family", "group", 300)],
         histories={-2001: make_history(-2001, 300)},
-        before_message=stop_at_message_101,
+        before_message=stop_at_message_200,
     )
     await start(Downloader(first_run, engine, tmp_path / "downloads", RecordingApi()))
     for message_id in (301, 302):
@@ -146,7 +147,7 @@ async def test_restart_during_a_download_leaves_no_gap(engine: Engine, tmp_path:
 
     await start(Downloader(second_run, engine, tmp_path / "downloads", RecordingApi()))
 
-    assert second_run.history_requests == [(-2001, "after", 100), (-2001, "before", 1)]
+    assert second_run.history_requests == [(-2001, "after", 300), (-2001, "before", 201)]
     assert stored_message_ids(engine, -2001) == list(range(1, 303))
 
 
@@ -167,7 +168,7 @@ async def test_message_after_a_failed_download_waits_for_the_next_check(engine: 
     await client.handler(events.NewMessage)(new_message_event(-2001, client.histories[-2001][-1]))
     await download_queued(downloader)
 
-    assert stored_message_ids(engine, -2001) == [1, 2]
+    assert stored_message_ids(engine, -2001) == [4, 5]
     client.before_message = None
     client.dialogs = [make_dialog(-2001, "Family", "group", 6)]
     await downloader.check()

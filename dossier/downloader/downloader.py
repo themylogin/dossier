@@ -60,7 +60,7 @@ class Downloader:
 
     def initial_states(self) -> dict[int, DownloadStateJson]:
         with Session(self.engine) as session:
-            chat_ids = session.scalars(select(Chat.chat_id)).all()
+            chats = session.execute(select(Chat.chat_id, Chat.downloaded)).all()
             rows = session.execute(
                 select(
                     Message.chat_id,
@@ -71,10 +71,11 @@ class Downloader:
                     func.count().filter(file_pending()),
                 ).group_by(Message.chat_id)
             ).all()
-        states = {chat_id: download_state(0, None, None, 0, 0, False) for chat_id in chat_ids}
+        downloaded = dict(chats)
+        states = {chat_id: download_state(0, None, None, 0, 0, downloaded[chat_id], False) for chat_id in downloaded}
         for chat_id, count, oldest, newest, files, pending in rows:
             if chat_id in states:
-                states[chat_id] = download_state(count, oldest, newest, files, pending, False)
+                states[chat_id] = download_state(count, oldest, newest, files, pending, downloaded[chat_id], False)
         return states
 
     def state(self, chat_id: int) -> DownloadStateJson:
@@ -88,7 +89,7 @@ class Downloader:
                     func.count().filter(file_pending()),
                 ).where(Message.chat_id == chat_id)
             ).one()
-        return download_state(count, oldest, newest, files, pending, chat_id in self.complete)
+        return download_state(count, oldest, newest, files, pending, self.downloaded(chat_id), chat_id in self.complete)
 
     async def report(self, chat_id: int) -> None:
         await self.api.publish(chat_id, self.state(chat_id))
@@ -101,9 +102,9 @@ class Downloader:
         with Session(self.engine) as session:
             return session.scalar(select(func.min(Message.message_id)).where(Message.chat_id == chat_id)) or 0
 
-    def history_checked(self, chat_id: int) -> bool:
+    def downloaded(self, chat_id: int) -> bool:
         with Session(self.engine) as session:
-            return bool(session.scalar(select(Chat.history_checked).where(Chat.chat_id == chat_id)))
+            return bool(session.scalar(select(Chat.downloaded).where(Chat.chat_id == chat_id)))
 
     def tracks(self, chat_id: int) -> bool:
         return chat_id in self.complete or chat_id in self.downloading or chat_id in self.failed
@@ -149,7 +150,7 @@ class Downloader:
             newest_ids = dict(
                 session.execute(select(Message.chat_id, func.max(Message.message_id)).group_by(Message.chat_id)).all()
             )
-            checked = set(session.scalars(select(Chat.chat_id).where(Chat.history_checked)))
+            downloaded = set(session.scalars(select(Chat.chat_id).where(Chat.downloaded)))
         for dialog in dialogs:
             chat_id = dialog.id
             self.names[chat_id] = dialog.name
@@ -163,7 +164,7 @@ class Downloader:
                 continue
             self.outside.discard(chat_id)
             self.failed.discard(chat_id)
-            if chat_id not in checked:
+            if chat_id not in downloaded:
                 self.queue_download(self.history_queue, chat_id, newer)
             elif newer:
                 self.queue_download(self.live_queue, chat_id, True)
@@ -225,15 +226,15 @@ class Downloader:
         while True:
             while self.downloading[chat_id]:
                 self.downloading[chat_id] = False
-                newer = self.client.iter_messages(chat_id, min_id=self.last_message_id(chat_id), reverse=True)
-                count = await self.store_history(chat_id, newer, count)
-            if not self.history_checked(chat_id):
+                # A chat without stored messages downloads newest first, through the older pass.
+                if self.downloaded(chat_id) or self.last_message_id(chat_id):
+                    newer = self.client.iter_messages(chat_id, min_id=self.last_message_id(chat_id), reverse=True)
+                    count = await self.store_history(chat_id, newer, count)
+            if not self.downloaded(chat_id):
                 older = self.client.iter_messages(chat_id, offset_id=self.first_message_id(chat_id))
                 count = await self.store_history(chat_id, older, count)
-                if utils.resolve_id(chat_id)[1] is PeerChannel:
-                    count = await self.fill_gaps(chat_id, count)
                 with Session(self.engine) as session, session.begin():
-                    session.execute(update(Chat).where(Chat.chat_id == chat_id).values(history_checked=True))
+                    session.execute(update(Chat).where(Chat.chat_id == chat_id).values(downloaded=True))
             # No await may come between this check and the move to complete. Otherwise a new
             # message can arrive after the check and get neither stored nor fetched.
             if not self.downloading[chat_id]:
@@ -251,24 +252,6 @@ class Downloader:
             if count % 100 == 0:
                 await self.report(chat_id)
                 logger.info(f"Downloaded {count} messages from '{self.names.get(chat_id, chat_id)}' so far...")
-        return count
-
-    async def fill_gaps(self, chat_id: int, count: int) -> int:
-        with Session(self.engine) as session:
-            stored_ids = session.scalars(
-                select(Message.message_id).where(Message.chat_id == chat_id).order_by(Message.message_id)
-            ).all()
-        missing = [
-            message_id
-            for previous, following in zip(stored_ids, stored_ids[1:])
-            for message_id in range(previous + 1, following)
-        ]
-        logger.info(f"Requesting {len(missing)} missing messages of chat {chat_id}")
-        for start in range(0, len(missing), 100):
-            for message in await self.client.get_messages(chat_id, ids=missing[start : start + 100]):
-                if message is not None:
-                    await self.store_message(message)
-                    count += 1
         return count
 
     def clear_media_cache(self) -> None:
@@ -486,9 +469,8 @@ class Downloader:
             name=name,
             type=chat_type,
             username=username,
-            tracked=True,
             download_media=False,
-            history_checked=False,
+            downloaded=False,
         )
         session.execute(
             statement.on_conflict_do_update(
@@ -497,8 +479,6 @@ class Downloader:
                     "name": statement.excluded.name,
                     "type": statement.excluded.type,
                     "username": statement.excluded.username,
-                    "tracked": True,
-                    "updated_at": func.current_timestamp(),
                 },
             )
         )
@@ -516,11 +496,7 @@ class Downloader:
             column: func.coalesce(statement.excluded[column], getattr(UserRow, column))
             for column in ("username", "first_name", "last_name", "phone", "is_bot")
         }
-        session.execute(
-            statement.on_conflict_do_update(
-                index_elements=[UserRow.user_id], set_={**kept, "updated_at": func.current_timestamp()}
-            )
-        )
+        session.execute(statement.on_conflict_do_update(index_elements=[UserRow.user_id], set_=kept))
         self.seen_sender_ids.add(user.id)
 
     def save_message(self, session: Session, message: TelegramMessage) -> None:

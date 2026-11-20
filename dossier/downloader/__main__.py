@@ -3,6 +3,7 @@ from collections.abc import Callable
 import logging
 import os
 from pathlib import Path
+import signal
 import sys
 
 from telethon import TelegramClient, utils
@@ -71,6 +72,7 @@ async def login(make_client: Callable[[], TelegramClient], phone: str) -> int:
 
 
 def main(arguments: list[str]) -> int:
+    signal.signal(signal.SIGTERM, signal.default_int_handler)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     command = "run"
     if arguments:

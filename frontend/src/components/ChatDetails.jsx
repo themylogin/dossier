@@ -1,10 +1,28 @@
 import React from 'react';
 import { formatDate } from '../dates';
 
-function FilesStat({ state }) {
+function DateStat({ state }) {
+  const newestDate = formatDate(state?.newest_message_date);
+  if (state?.downloaded) {
+    return (
+      <div className="stat-item">
+        <span className="stat-label">Newest message:</span>
+        <span className="stat-value">{newestDate}</span>
+      </div>
+    );
+  }
+  return (
+    <div className="stat-item">
+      <span className="stat-label">Date range:</span>
+      <span className="stat-value">{formatDate(state?.oldest_message_date)} - {newestDate}</span>
+    </div>
+  );
+}
+
+function FilesStat({ state, media }) {
   const files = state?.files_count ?? 0;
   const total = files + (state?.files_pending ?? 0);
-  if (total === 0) {
+  if (!media || total === 0) {
     return null;
   }
   return (
@@ -41,8 +59,6 @@ export function ChatDetails({ selectedChat }) {
     const state = selectedChat.state;
 
     const messageCount = state?.messages_count?.toLocaleString() || '0';
-    const oldestDate = formatDate(state?.oldest_message_date);
-    const newestDate = formatDate(state?.newest_message_date);
 
     return (
       <div className="chat-details">
@@ -59,11 +75,8 @@ export function ChatDetails({ selectedChat }) {
                   <span className="stat-label">Messages:</span>
                   <span className="stat-value">{messageCount}</span>
                 </div>
-                <div className="stat-item">
-                  <span className="stat-label">Date range:</span>
-                  <span className="stat-value">{oldestDate} - {newestDate}</span>
-                </div>
-                <FilesStat state={state} />
+                <DateStat state={state} />
+                <FilesStat state={state} media={selectedChat.settings?.media} />
               </div>
             </div>
           </div>
@@ -75,9 +88,6 @@ export function ChatDetails({ selectedChat }) {
   const state = selectedChat.state;
   const complete = state?.complete === true;
   const messageCount = state?.messages_count?.toLocaleString() || '0';
-
-  const oldestDate = formatDate(state?.oldest_message_date);
-  const newestDate = formatDate(state?.newest_message_date);
 
   return (
     <div className="chat-details">
@@ -94,11 +104,8 @@ export function ChatDetails({ selectedChat }) {
                 <span className="stat-label">Messages:</span>
                 <span className="stat-value">{messageCount}</span>
               </div>
-              <div className="stat-item">
-                <span className="stat-label">Date range:</span>
-                <span className="stat-value">{oldestDate} - {newestDate}</span>
-              </div>
-              <FilesStat state={state} />
+              <DateStat state={state} />
+              <FilesStat state={state} media={selectedChat.settings?.media} />
             </div>
           </div>
         </div>

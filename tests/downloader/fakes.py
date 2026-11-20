@@ -143,16 +143,15 @@ def stored_message_ids(engine: Engine, chat_id: int) -> Sequence[int]:
         ).all()
 
 
-def store_chat(engine: Engine, chat_id: int, message_ids: Iterable[int], history_checked: bool) -> None:
+def store_chat(engine: Engine, chat_id: int, message_ids: Iterable[int], downloaded: bool) -> None:
     with Session(engine) as session, session.begin():
         session.merge(
             Chat(
                 chat_id=chat_id,
                 name="Chat",
                 type="group",
-                tracked=True,
                 download_media=False,
-                history_checked=history_checked,
+                downloaded=downloaded,
             )
         )
         for message_id in message_ids:

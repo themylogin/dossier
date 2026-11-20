@@ -15,6 +15,7 @@ def downloader_state(messages_count: int) -> DownloadStateJson:
         "newest_message_date": "2024-01-02T10:00:00+00:00",
         "files_count": 0,
         "files_pending": 0,
+        "downloaded": False,
         "complete": False,
     }
 
@@ -42,6 +43,7 @@ def test_reported_state_wins_over_the_stored_messages(linked_client: TestClient,
         "newest_message_date": "2024-01-02T10:00:00Z",
         "files_count": 0,
         "files_pending": 0,
+        "downloaded": False,
         "complete": True,
     }
 
@@ -110,6 +112,7 @@ def test_lost_downloader_leaves_no_download_status(
             "newest_message_date": None,
             "files_count": 0,
             "files_pending": 0,
+            "downloaded": False,
             "complete": None,
         }
     ]

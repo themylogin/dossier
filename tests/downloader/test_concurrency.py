@@ -36,7 +36,7 @@ async def test_downloader_and_backend_write_without_lock_errors(tmp_path: Path) 
     migrate(database_url)
     engine = create_database_engine(database_url)
     with Session(engine) as session, session.begin():
-        session.add(Chat(chat_id=-2001, name="Family", type="group", tracked=True, download_media=False))
+        session.add(Chat(chat_id=-2001, name="Family", type="group", download_media=False))
     client = FakeClient(
         dialogs=[make_dialog(-2001, "Family", "group", 3000)], histories={-2001: make_history(-2001, 3000)}, delay=0.001
     )

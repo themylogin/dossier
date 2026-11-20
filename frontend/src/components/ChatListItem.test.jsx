@@ -336,4 +336,46 @@ describe('ChatListItem', () => {
 
     expect(screen.queryByText(/📎/)).not.toBeInTheDocument();
   });
+
+  it('shows only the newest date when the chat is downloaded', () => {
+    const chat = {
+      id: 123,
+      name: 'Test Chat',
+      settings: { media: false },
+      state: {
+        messages_count: 2000,
+        oldest_message_date: '2024-01-01T00:00:00Z',
+        newest_message_date: '2024-01-24T00:00:00Z',
+        files_count: 1200,
+        files_pending: 300,
+        downloaded: true,
+        complete: true
+      }
+    };
+
+    const { container } = render(<ChatListItem chat={chat} {...defaultProps} />);
+
+    expect(container.querySelector('.download-info').textContent).toMatch(/^✓ Jan 24, 2024, \d{2}:\d{2} \(2,000\)$/);
+  });
+
+  it('shows no media progress when media is off', () => {
+    const chat = {
+      id: 123,
+      name: 'Test Chat',
+      settings: { media: false },
+      state: {
+        messages_count: 2000,
+        oldest_message_date: '2024-01-01T00:00:00Z',
+        newest_message_date: '2024-01-24T00:00:00Z',
+        files_count: 1200,
+        files_pending: 300,
+        downloaded: true,
+        complete: true
+      }
+    };
+
+    render(<ChatListItem chat={chat} {...defaultProps} />);
+
+    expect(screen.queryByText(/📎/)).not.toBeInTheDocument();
+  });
 });

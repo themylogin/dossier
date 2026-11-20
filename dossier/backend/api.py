@@ -61,6 +61,7 @@ class BackendApi:
                     "newest_message_date": newest_message_date,
                     "files_count": files_count,
                     "files_pending": files_pending,
+                    "downloaded": row.downloaded,
                 }
             )
         return Chat(

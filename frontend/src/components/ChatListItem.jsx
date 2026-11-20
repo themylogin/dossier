@@ -28,17 +28,19 @@ function DownloadStatus({ complete }) {
 export function ChatListItem({ chat, isSelected, onClick, onContextMenu, getAvatarColor, getInitials }) {
   const isGroup = chat.id < 0;
 
-  const formatDownloadInfo = (state) => {
+  const formatDownloadInfo = (state, media) => {
     if (!state) return null;
 
-    const { oldest_message_date, newest_message_date, messages_count, files_count = 0, files_pending = 0, complete } = state;
+    const { oldest_message_date, newest_message_date, messages_count, files_count = 0, files_pending = 0, downloaded, complete } = state;
 
-    const oldestDate = formatDate(oldest_message_date);
     const newestDateTime = formatDateTime(newest_message_date);
     const count = messages_count.toLocaleString();
     const filesTotal = files_count + files_pending;
-    let text = `${oldestDate} - ${newestDateTime} (${count})`;
-    if (filesTotal > 0) {
+    let text = `${newestDateTime} (${count})`;
+    if (!downloaded) {
+      text = `${formatDate(oldest_message_date)} - ${text}`;
+    }
+    if (media && filesTotal > 0) {
       text += ` 📎 ${files_count.toLocaleString()}/${filesTotal.toLocaleString()}`;
     }
 
@@ -48,7 +50,7 @@ export function ChatListItem({ chat, isSelected, onClick, onContextMenu, getAvat
     };
   };
 
-  const downloadInfo = formatDownloadInfo(chat.state);
+  const downloadInfo = formatDownloadInfo(chat.state, chat.settings?.media);
 
   return (
     <div

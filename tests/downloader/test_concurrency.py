@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from dossier.database import create_database_engine
 from dossier.downloader.downloader import Downloader
 from dossier.models import Chat, Message
-from tests.downloader.fakes import FakeClient, RecordingApi, make_dialog, make_history
+from tests.downloader.fakes import FakeClient, RecordingApi, make_dialog, make_history, start
 from tests.migrate import migrate
 
 
@@ -45,7 +45,7 @@ async def test_downloader_and_backend_write_without_lock_errors(tmp_path: Path) 
     writer = context.Process(target=update_settings_like_the_backend, args=(str(database_path), 3, results))
     writer.start()
 
-    await Downloader(client, engine, tmp_path / "downloads", RecordingApi()).start_up()
+    await start(Downloader(client, engine, tmp_path / "downloads", RecordingApi()))
     updates, errors = results.get(timeout=60)
     writer.join()
 

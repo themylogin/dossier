@@ -13,6 +13,8 @@ def downloader_state(messages_count: int) -> DownloadStateJson:
         "messages_count": messages_count,
         "oldest_message_date": "2024-01-01T10:00:00+00:00",
         "newest_message_date": "2024-01-02T10:00:00+00:00",
+        "files_count": 0,
+        "files_pending": 0,
         "complete": False,
     }
 
@@ -38,6 +40,8 @@ def test_reported_state_wins_over_the_stored_messages(linked_client: TestClient,
         "messages_count": 7,
         "oldest_message_date": "2024-01-01T10:00:00Z",
         "newest_message_date": "2024-01-02T10:00:00Z",
+        "files_count": 0,
+        "files_pending": 0,
         "complete": True,
     }
 
@@ -99,5 +103,14 @@ def test_lost_downloader_leaves_no_download_status(
         states = progress(websocket, 1001, 1)
         chats = list_chats(websocket)
 
-    assert states == [{"messages_count": 0, "oldest_message_date": None, "newest_message_date": None, "complete": None}]
+    assert states == [
+        {
+            "messages_count": 0,
+            "oldest_message_date": None,
+            "newest_message_date": None,
+            "files_count": 0,
+            "files_pending": 0,
+            "complete": None,
+        }
+    ]
     assert next(chat for chat in chats if chat["id"] == 1001)["state"]["complete"] is None

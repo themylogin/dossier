@@ -3,9 +3,12 @@ import sqlite3
 
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, event
+from sqlalchemy.orm import Session
 from sqlalchemy.pool import ConnectionPoolEntry
 
+from dossier import models
 from dossier.backend.main import create_app
+from dossier.database import create_database_engine
 from tests.backend.conftest import store_messages
 from tests.backend.rpc import list_chats, request
 
@@ -50,7 +53,14 @@ def test_each_chat_has_id_name_settings_and_state(client: TestClient) -> None:
         assert isinstance(chat["id"], int)
         assert isinstance(chat["name"], str)
         assert chat["settings"] == {"media": False}
-        assert set(chat["state"]) == {"messages_count", "oldest_message_date", "newest_message_date", "complete"}
+        assert set(chat["state"]) == {
+            "messages_count",
+            "oldest_message_date",
+            "newest_message_date",
+            "files_count",
+            "files_pending",
+            "complete",
+        }
 
 
 def test_chat_without_a_reported_state_has_the_state_of_its_stored_messages(
@@ -65,6 +75,8 @@ def test_chat_without_a_reported_state_has_the_state_of_its_stored_messages(
         "messages_count": 3,
         "oldest_message_date": "2024-01-01T10:00:00Z",
         "newest_message_date": "2024-01-03T10:00:00Z",
+        "files_count": 0,
+        "files_pending": 0,
         "complete": None,
     }
 
@@ -75,7 +87,14 @@ def test_chat_without_messages_has_the_zero_state(client: TestClient) -> None:
 
     assert all(
         chat["state"]
-        == {"messages_count": 0, "oldest_message_date": None, "newest_message_date": None, "complete": None}
+        == {
+            "messages_count": 0,
+            "oldest_message_date": None,
+            "newest_message_date": None,
+            "files_count": 0,
+            "files_pending": 0,
+            "complete": None,
+        }
         for chat in chats
     )
 
@@ -89,7 +108,14 @@ def test_turning_media_on_stores_the_setting(client: TestClient) -> None:
         "id": 1001,
         "name": "Alice Smith",
         "settings": {"media": True},
-        "state": {"messages_count": 0, "oldest_message_date": None, "newest_message_date": None, "complete": None},
+        "state": {
+            "messages_count": 0,
+            "oldest_message_date": None,
+            "newest_message_date": None,
+            "files_count": 0,
+            "files_pending": 0,
+            "complete": None,
+        },
     }
     assert next(chat for chat in chats if chat["id"] == 1001)["settings"] == {"media": True}
 
@@ -157,3 +183,32 @@ def test_update_chat_starts_with_begin_immediate(client: TestClient) -> None:
 
     update_index = next(index for index, statement in enumerate(statements) if statement.startswith("UPDATE chats"))
     assert statements[update_index - 1] == "BEGIN IMMEDIATE"
+
+
+def test_chat_without_a_reported_state_counts_its_stored_files(client: TestClient, database_path: Path) -> None:
+    engine = create_database_engine(f"sqlite:///{database_path}")
+    with Session(engine) as session, session.begin():
+        for number, media_type, media_path in [
+            (1, "photo", "/downloads/1001/photo_1.jpg"),
+            (2, "other", None),
+            (3, None, None),
+            (4, None, None),
+        ]:
+            session.add(
+                models.Message(
+                    chat_id=1001,
+                    message_id=number,
+                    date=f"2024-01-0{number}T10:00:00+00:00",
+                    text="",
+                    has_media=True,
+                    media_type=media_type,
+                    media_path=media_path,
+                )
+            )
+    engine.dispose()
+
+    with client.websocket_connect("/api/ws_jsonrpc") as websocket:
+        chats = list_chats(websocket)
+
+    state = next(chat for chat in chats if chat["id"] == 1001)["state"]
+    assert (state["files_count"], state["files_pending"]) == (1, 2)

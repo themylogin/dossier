@@ -82,7 +82,14 @@ async def test_settings_saved_reports_the_zero_state_at_once(engine: Engine) -> 
             first = (await notices_for(connection, 1001, 1))[0]
         await fake_downloader.close()
 
-    assert first == {"messages_count": 0, "oldest_message_date": None, "newest_message_date": None, "complete": False}
+    assert first == {
+        "messages_count": 0,
+        "oldest_message_date": None,
+        "newest_message_date": None,
+        "files_count": 0,
+        "files_pending": 0,
+        "complete": False,
+    }
 
 
 async def test_settings_saved_again_during_a_download_restarts_it(engine: Engine) -> None:
@@ -142,3 +149,30 @@ async def test_full_simulated_download(engine: Engine) -> None:
     assert all(earlier < later for earlier, later in pairwise(newest))
     assert started <= newest[-1] <= finished
     assert [state["complete"] for state in states] == [False] * 9 + [True]
+
+
+async def simulated_states(engine: Engine, media: bool) -> list[dict[str, Any]]:
+    fake_downloader = FakeDownloader(engine, DownloaderApi(), 0.01)
+    fake_downloader.store_chats()
+    with Session(engine) as session, session.begin():
+        session.execute(update(Chat).where(Chat.chat_id == -2001).values(download_media=media))
+    api = fake_downloader.api
+    async with api.serve("127.0.0.1", 0, lambda: None, fake_downloader.start) as server:
+        async with connect(f"ws://127.0.0.1:{server.sockets[0].getsockname()[1]}/") as connection:
+            await connection.recv()
+            await settings_changed(connection, -2001)
+            states = await notices_for(connection, -2001, 11)
+        await fake_downloader.close()
+    return states
+
+
+async def test_simulated_files_with_media_on(engine: Engine) -> None:
+    states = await simulated_states(engine, True)
+
+    assert (states[-1]["files_count"], states[-1]["files_pending"]) == (100, 0)
+
+
+async def test_no_files_with_media_off(engine: Engine) -> None:
+    states = await simulated_states(engine, False)
+
+    assert all((state["files_count"], state["files_pending"]) == (0, 0) for state in states)

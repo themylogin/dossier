@@ -13,6 +13,8 @@ class DownloadStateJson(TypedDict):
     messages_count: int
     oldest_message_date: str | None
     newest_message_date: str | None
+    files_count: int
+    files_pending: int
     complete: bool
 
 
@@ -22,12 +24,19 @@ class ChatStateJson(TypedDict):
 
 
 def download_state(
-    messages_count: int, oldest_message_date: str | None, newest_message_date: str | None, complete: bool
+    messages_count: int,
+    oldest_message_date: str | None,
+    newest_message_date: str | None,
+    files_count: int,
+    files_pending: int,
+    complete: bool,
 ) -> DownloadStateJson:
     return {
         "messages_count": messages_count,
         "oldest_message_date": oldest_message_date,
         "newest_message_date": newest_message_date,
+        "files_count": files_count,
+        "files_pending": files_pending,
         "complete": complete,
     }
 

@@ -7,12 +7,11 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import Engine, select, update
 from sqlalchemy.orm import Session
-from telethon.tl.types import MessageMediaPhoto
 
 from dossier.database import create_database_engine
 from dossier.downloader.downloader import Downloader
 from dossier.models import Chat, Message
-from tests.downloader.fakes import FakeClient, RecordingApi, make_dialog, make_message
+from tests.downloader.fakes import FakeClient, RecordingApi, make_dialog, make_message, make_photo, start
 from tests.migrate import migrate
 
 
@@ -35,14 +34,14 @@ def stored_messages(engine: Engine, chat_id: int) -> Sequence[Message]:
 
 
 def photo_message(message_id: int, date: datetime | None = None) -> SimpleNamespace:
-    return make_message(-2001, message_id, media=MessageMediaPhoto(photo=None), date=date)
+    return make_message(-2001, message_id, media=make_photo(message_id), date=date)
 
 
 async def test_media_off_stores_the_message_without_a_file(engine: Engine, tmp_path: Path) -> None:
     set_media(engine, -2001, False)
     client = FakeClient(dialogs=[make_dialog(-2001, "Family", "group", 1)], histories={-2001: [photo_message(1)]})
 
-    await Downloader(client, engine, tmp_path / "downloads", RecordingApi()).start_up()
+    await start(Downloader(client, engine, tmp_path / "downloads", RecordingApi()))
 
     message = stored_messages(engine, -2001)[0]
     assert (message.has_media, message.media_type, message.media_path) == (True, None, None)
@@ -53,7 +52,7 @@ async def test_media_on_saves_the_photo_and_its_path(engine: Engine, tmp_path: P
     set_media(engine, -2001, True)
     client = FakeClient(dialogs=[make_dialog(-2001, "Family", "group", 1)], histories={-2001: [photo_message(1)]})
 
-    await Downloader(client, engine, tmp_path / "downloads", RecordingApi()).start_up()
+    await start(Downloader(client, engine, tmp_path / "downloads", RecordingApi()))
 
     message = stored_messages(engine, -2001)[0]
     photo = tmp_path / "downloads" / "-2001" / "00" / "00" / "01" / "1" / "photo_1.jpg"
@@ -79,16 +78,16 @@ async def test_media_turned_on_during_a_download_applies_to_the_next_messages(en
     )
     downloaders.append(Downloader(client, engine, tmp_path / "downloads", RecordingApi()))
 
-    await downloaders[0].start_up()
+    await start(downloaders[0])
 
-    assert [message.media_type for message in stored_messages(engine, -2001)] == [None, None, "photo", "photo"]
+    assert [message.media_type for message in stored_messages(engine, -2001)] == ["photo"] * 4
 
 
 async def test_dialog_stored_again_keeps_media_on(engine: Engine, tmp_path: Path) -> None:
     set_media(engine, -2001, True)
     client = FakeClient(dialogs=[make_dialog(-2001, "Family renamed", "group", 0)])
 
-    await Downloader(client, engine, tmp_path / "downloads", RecordingApi()).start_up()
+    await start(Downloader(client, engine, tmp_path / "downloads", RecordingApi()))
 
     with Session(engine) as session:
         chat = session.get_one(Chat, -2001)
@@ -98,7 +97,7 @@ async def test_dialog_stored_again_keeps_media_on(engine: Engine, tmp_path: Path
 async def test_new_chat_starts_with_media_off(engine: Engine, tmp_path: Path) -> None:
     client = FakeClient(dialogs=[make_dialog(-2002, "Book Club", "group", 0)])
 
-    await Downloader(client, engine, tmp_path / "downloads", RecordingApi()).start_up()
+    await start(Downloader(client, engine, tmp_path / "downloads", RecordingApi()))
 
     with Session(engine) as session:
         assert session.get_one(Chat, -2002).download_media is False
@@ -111,7 +110,7 @@ async def test_photo_of_message_7890_gets_the_bot_py_path_and_date(engine: Engin
         dialogs=[make_dialog(-2001, "Family", "group", 7890)], histories={-2001: [photo_message(7890, sent)]}
     )
 
-    await Downloader(client, engine, tmp_path / "downloads", RecordingApi()).start_up()
+    await start(Downloader(client, engine, tmp_path / "downloads", RecordingApi()))
 
     photo = tmp_path / "downloads" / "-2001" / "00" / "78" / "90" / "7890" / "photo_7890.jpg"
     assert photo.exists()

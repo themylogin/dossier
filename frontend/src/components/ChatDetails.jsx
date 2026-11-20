@@ -1,6 +1,20 @@
 import React from 'react';
 import { formatDate } from '../dates';
 
+function FilesStat({ state }) {
+  const files = state?.files_count ?? 0;
+  const total = files + (state?.files_pending ?? 0);
+  if (total === 0) {
+    return null;
+  }
+  return (
+    <div className="stat-item">
+      <span className="stat-label">Files:</span>
+      <span className="stat-value">{`${files.toLocaleString()}/${total.toLocaleString()}`}</span>
+    </div>
+  );
+}
+
 /**
  * Chat details panel component
  *
@@ -49,6 +63,7 @@ export function ChatDetails({ selectedChat }) {
                   <span className="stat-label">Date range:</span>
                   <span className="stat-value">{oldestDate} - {newestDate}</span>
                 </div>
+                <FilesStat state={state} />
               </div>
             </div>
           </div>
@@ -83,6 +98,7 @@ export function ChatDetails({ selectedChat }) {
                 <span className="stat-label">Date range:</span>
                 <span className="stat-value">{oldestDate} - {newestDate}</span>
               </div>
+              <FilesStat state={state} />
             </div>
           </div>
         </div>

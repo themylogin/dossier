@@ -21,7 +21,12 @@ class BackendApi:
     def read_chats(self, *conditions: ColumnElement[bool]) -> list[Chat]:
         statement = (
             select(
-                models.Chat, func.count(models.Message.id), func.min(models.Message.date), func.max(models.Message.date)
+                models.Chat,
+                func.count(models.Message.id),
+                func.min(models.Message.date),
+                func.max(models.Message.date),
+                func.count(models.Message.media_path),
+                func.count(models.Message.id).filter(models.file_pending()),
             )
             .outerjoin(models.Message, models.Message.chat_id == models.Chat.chat_id)
             .where(*conditions)
@@ -39,7 +44,13 @@ class BackendApi:
         return True
 
     def to_chat(
-        self, row: models.Chat, messages_count: int, oldest_message_date: str | None, newest_message_date: str | None
+        self,
+        row: models.Chat,
+        messages_count: int,
+        oldest_message_date: str | None,
+        newest_message_date: str | None,
+        files_count: int,
+        files_pending: int,
     ) -> Chat:
         state = self.states.get(row.chat_id)
         if state is None:
@@ -48,6 +59,8 @@ class BackendApi:
                     "messages_count": messages_count,
                     "oldest_message_date": oldest_message_date,
                     "newest_message_date": newest_message_date,
+                    "files_count": files_count,
+                    "files_pending": files_pending,
                 }
             )
         return Chat(

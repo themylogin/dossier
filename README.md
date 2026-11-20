@@ -3,7 +3,7 @@
 Dossier downloads Telegram chats and shows the download progress of each chat.
 
 - `dossier/`: the Python project. It holds the models in `dossier/models.py`, the Alembic migrations in `migrations/`, and two services:
-  - `dossier/downloader/`: a Telethon service. It downloads every chat in full, and the media of the chats with media on. It reports its progress over a WebSocket API.
+  - `dossier/downloader/`: a Telethon service. It downloads every chat in full, and the media of the chats with media on. It also downloads each chat that the account joins while it runs. Every 15 minutes, it reads the dialog list again and completes each chat that is behind. It keeps each earlier version of an edited message in `message_versions`. It reports its progress over a WebSocket API.
   - `dossier/backend/`: a FastAPI app. It serves a JSON-RPC 2.0 API over a WebSocket to the UI. Its JSON-RPC methods are in `dossier/backend/api.py`. It reads chats and settings from the database, and it passes on the progress of the downloader.
 - `frontend/`: the React UI, served by nginx.
 - `e2e/`: Playwright tests in headless Chromium, against a fake downloader.
@@ -35,7 +35,7 @@ Start the stack. The `migrate` service first upgrades `messages.db` and exits. T
 docker compose up --build
 ```
 
-Then open http://localhost:8080. To download the media of a chat, right-click the chat, select `Download Settings`, and check `Download Media`.
+Then open http://localhost:8080. To download the media of a chat, right-click the chat, select `Download Settings`, and check `Download Media`. The downloader then saves the files of every stored message of the chat, newest first, and the UI shows the progress with `📎`. Uncheck `Download Media` to stop after the current file.
 
 Stop them:
 

@@ -87,7 +87,7 @@ def test_database_from_bot_py_is_adopted(tmp_path: Path) -> None:
         table: {column["name"] for column in inspector.get_columns(table) if not column["nullable"]}
         for table in ("messages", "chats", "users")
     }
-    assert version == "0003"
+    assert version == "0004"
     assert message_ids == [1, 2, 3]
     assert chat.download_media
     assert user.first_name == "Ann"

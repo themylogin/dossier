@@ -31,14 +31,19 @@ export function ChatListItem({ chat, isSelected, onClick, onContextMenu, getAvat
   const formatDownloadInfo = (state) => {
     if (!state) return null;
 
-    const { oldest_message_date, newest_message_date, messages_count, complete } = state;
+    const { oldest_message_date, newest_message_date, messages_count, files_count = 0, files_pending = 0, complete } = state;
 
     const oldestDate = formatDate(oldest_message_date);
     const newestDateTime = formatDateTime(newest_message_date);
     const count = messages_count.toLocaleString();
+    const filesTotal = files_count + files_pending;
+    let text = `${oldestDate} - ${newestDateTime} (${count})`;
+    if (filesTotal > 0) {
+      text += ` 📎 ${files_count.toLocaleString()}/${filesTotal.toLocaleString()}`;
+    }
 
     return {
-      text: `${oldestDate} - ${newestDateTime} (${count})`,
+      text,
       complete
     };
   };

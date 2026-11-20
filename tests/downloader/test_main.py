@@ -6,15 +6,15 @@ import socket
 from types import SimpleNamespace
 
 import pytest
-from sqlalchemy import select, update
+from sqlalchemy import Engine, select, update
 from sqlalchemy.orm import Session
-from telethon.tl.types import MessageMediaPhoto
-from websockets.asyncio.client import connect
+from telethon import events
+from websockets.asyncio.client import ClientConnection, connect
 
 from dossier.database import create_database_engine
 from dossier.downloader.__main__ import main, run
 from dossier.models import Chat, Message
-from tests.downloader.fakes import FakeClient, make_dialog, make_message
+from tests.downloader.fakes import FakeClient, make_dialog, make_message, make_photo
 from tests.migrate import migrate
 
 
@@ -55,45 +55,60 @@ async def test_start_order_is_api_then_telegram(tmp_path: Path) -> None:
     assert client.calls == ["connect", "run_until_disconnected"]
 
 
-def photo_event(message_id: int) -> SimpleNamespace:
-    message = make_message(-2001, message_id, media=MessageMediaPhoto(photo=None))
-    return SimpleNamespace(chat_id=-2001, message=message, is_private=False, is_group=True)
+async def wait_until_complete(api: ClientConnection, chat_id: int) -> None:
+    snapshot = json.loads(await asyncio.wait_for(api.recv(), timeout=2))
+    complete = {chat["id"] for chat in snapshot["params"]["chats"] if chat["state"]["complete"]}
+    while chat_id not in complete:
+        progress = json.loads(await asyncio.wait_for(api.recv(), timeout=2))["params"]
+        if progress["state"]["complete"]:
+            complete.add(progress["id"])
 
 
-async def test_settings_notice_makes_the_downloader_read_media_settings_again(tmp_path: Path) -> None:
+def photo_message(message_id: int) -> SimpleNamespace:
+    return make_message(-2001, message_id, media=make_photo(message_id))
+
+
+async def wait_until_stored(engine: Engine, message_id: int, with_file: bool) -> None:
+    statement = select(Message.media_path).where(Message.chat_id == -2001, Message.message_id == message_id)
+    async with asyncio.timeout(5):
+        while True:
+            with Session(engine) as session:
+                row = session.execute(statement).one_or_none()
+            if row is not None and (row.media_path is not None or not with_file):
+                return
+            await asyncio.sleep(0.01)
+
+
+async def test_settings_notice_starts_the_media_downloads_of_the_chat(tmp_path: Path) -> None:
     port = free_port()
     database_path = tmp_path / "messages.db"
     migrate(f"sqlite:///{database_path}")
     engine = create_database_engine(f"sqlite:///{database_path}")
-    clients: list[FakeClient] = []
+    client = FakeClient(dialogs=[make_dialog(-2001, "Family", "group", 1)], histories={-2001: [photo_message(1)]})
+
+    async def arrive(message_id: int) -> None:
+        client.histories[-2001].append(photo_message(message_id))
+        await client.handler(events.NewMessage)(SimpleNamespace(chat_id=-2001, message=client.histories[-2001][-1]))
 
     async def receive_photos_around_a_settings_notice() -> None:
-        handle = clients[0].handlers[0]
         async with connect(f"ws://127.0.0.1:{port}/") as api:
-            await asyncio.wait_for(api.recv(), timeout=2)
-            await handle(photo_event(2))
+            await wait_until_complete(api, -2001)
+            await arrive(2)
+            await wait_until_stored(engine, 2, with_file=False)
             with Session(engine) as session, session.begin():
                 session.execute(update(Chat).where(Chat.chat_id == -2001).values(download_media=True))
-            await handle(photo_event(3))
+            await arrive(3)
+            await wait_until_stored(engine, 3, with_file=False)
             await api.send(json.dumps({"jsonrpc": "2.0", "method": "settings_changed", "params": {"id": -2001}}))
-            await asyncio.sleep(0.2)
-            await handle(photo_event(4))
+            await wait_until_stored(engine, 1, with_file=True)
+            await arrive(4)
+            await wait_until_stored(engine, 4, with_file=True)
 
-    clients.append(
-        FakeClient(
-            dialogs=[make_dialog(-2001, "Family", "group", 1)],
-            histories={-2001: [make_message(-2001, 1, media=MessageMediaPhoto(photo=None))]},
-            while_running=receive_photos_around_a_settings_notice,
-        )
-    )
+    client.while_running = receive_photos_around_a_settings_notice
 
-    await run(lambda: clients[0], database_path, tmp_path / "downloads", port)
+    await run(lambda: client, database_path, tmp_path / "downloads", port)
 
-    with Session(engine) as session:
-        media_types = session.execute(
-            select(Message.message_id, Message.media_type).where(Message.chat_id == -2001).order_by(Message.message_id)
-        ).all()
-    assert [tuple(row) for row in media_types] == [(1, None), (2, None), (3, None), (4, "photo")]
+    assert client.downloaded == [3, 2, 1, 4]
 
 
 def test_missing_key_exits_with_a_message(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:

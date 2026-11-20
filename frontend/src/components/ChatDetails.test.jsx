@@ -221,4 +221,45 @@ describe('ChatDetails', () => {
     );
     expect(screen.getByText(chatName)).toBeInTheDocument();
   });
+
+  it('shows the media progress when the chat has files', () => {
+    const chat = {
+      id: 123,
+      name: 'Test Chat',
+      settings: { media: true },
+      state: {
+        messages_count: 2000,
+        oldest_message_date: '2024-01-01T00:00:00Z',
+        newest_message_date: '2024-01-24T00:00:00Z',
+        files_count: 1200,
+        files_pending: 300,
+        complete: false
+      }
+    };
+
+    render(<ChatDetails {...defaultProps} selectedChat={chat} />);
+
+    expect(screen.getByText('Files:')).toBeInTheDocument();
+    expect(screen.getByText('1,200/1,500')).toBeInTheDocument();
+  });
+
+  it('shows no media progress when the chat has no files', () => {
+    const chat = {
+      id: 123,
+      name: 'Test Chat',
+      settings: { media: false },
+      state: {
+        messages_count: 2000,
+        oldest_message_date: '2024-01-01T00:00:00Z',
+        newest_message_date: '2024-01-24T00:00:00Z',
+        files_count: 0,
+        files_pending: 0,
+        complete: true
+      }
+    };
+
+    render(<ChatDetails {...defaultProps} selectedChat={chat} />);
+
+    expect(screen.queryByText('Files:')).not.toBeInTheDocument();
+  });
 });

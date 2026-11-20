@@ -22,17 +22,26 @@ async def run(make_client: Callable[[], TelegramClient], database_path: Path, do
     api = DownloaderApi()
     downloader = Downloader(client, engine, downloads_dir, api)
     api.states.update(downloader.initial_states())
-    async with api.serve("0.0.0.0", port, downloader.clear_media_cache, lambda chat_id: downloader.clear_media_cache()):
+    async with api.serve("0.0.0.0", port, downloader.clear_media_cache, downloader.settings_changed):
         logger.info(f"Downloader API listening on port {port}")
+        downloader.listen()
         await client.connect()
         if not await client.is_user_authorized():
             logger.error("The Telegram session is not logged in. Run: docker compose run --rm downloader login")
             await client.disconnect()
             return 1
         logger.info("Downloader started successfully!")
-        await downloader.start_up()
-        downloader.listen()
-        await client.run_until_disconnected()
+        async with asyncio.TaskGroup() as tasks:
+            workers = [
+                tasks.create_task(downloader.download_queued_chats(downloader.history_queue)),
+                tasks.create_task(downloader.download_queued_chats(downloader.live_queue)),
+                tasks.create_task(downloader.download_queued_media()),
+                tasks.create_task(downloader.check_forever()),
+            ]
+            await downloader.start_up()
+            await client.run_until_disconnected()
+            for worker in workers:
+                worker.cancel()
     return 0
 
 
@@ -78,7 +87,9 @@ def main(arguments: list[str]) -> int:
         return 1
 
     def make_client() -> TelegramClient:
-        return TelegramClient("/data/dossier_bot", settings.api_id, settings.api_hash, flood_sleep_threshold=3600)
+        return TelegramClient(
+            "/data/dossier_bot", settings.api_id, settings.api_hash, flood_sleep_threshold=3600, catch_up=True
+        )
 
     if command == "login":
         return asyncio.run(login(make_client, settings.phone))

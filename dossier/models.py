@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Index, Integer, Text, UniqueConstraint
+from sqlalchemy import Boolean, ColumnElement, Index, Integer, Text, UniqueConstraint, and_
 from sqlalchemy import text as sql_text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -26,6 +26,25 @@ class Message(Base):
     media_type: Mapped[str | None] = mapped_column(Text)
     media_path: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[str] = mapped_column(Text, server_default=sql_text("CURRENT_TIMESTAMP"))
+    edit_date: Mapped[str | None] = mapped_column(Text)
+    media_id: Mapped[int | None] = mapped_column(Integer)
+    media_replaced_at: Mapped[str | None] = mapped_column(Text)
+
+
+class MessageVersion(Base):
+    __tablename__ = "message_versions"
+    __table_args__ = (UniqueConstraint("chat_id", "message_id", "version_date"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    chat_id: Mapped[int] = mapped_column(Integer)
+    message_id: Mapped[int] = mapped_column(Integer)
+    version_date: Mapped[str] = mapped_column(Text)
+    text: Mapped[str] = mapped_column(Text)
+    has_media: Mapped[bool] = mapped_column(Boolean)
+    media_type: Mapped[str | None] = mapped_column(Text)
+    media_path: Mapped[str | None] = mapped_column(Text)
+    media_id: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[str] = mapped_column(Text, server_default=sql_text("CURRENT_TIMESTAMP"))
 
 
 class Chat(Base):
@@ -37,6 +56,7 @@ class Chat(Base):
     username: Mapped[str | None] = mapped_column(Text)
     tracked: Mapped[bool] = mapped_column(Boolean)
     download_media: Mapped[bool] = mapped_column(Boolean)
+    history_checked: Mapped[bool] = mapped_column(Boolean, server_default=sql_text("0"))
     first_seen_at: Mapped[str] = mapped_column(Text, server_default=sql_text("CURRENT_TIMESTAMP"))
     updated_at: Mapped[str] = mapped_column(Text, server_default=sql_text("CURRENT_TIMESTAMP"))
 
@@ -52,3 +72,7 @@ class User(Base):
     is_bot: Mapped[bool] = mapped_column(Boolean)
     first_seen_at: Mapped[str] = mapped_column(Text, server_default=sql_text("CURRENT_TIMESTAMP"))
     updated_at: Mapped[str] = mapped_column(Text, server_default=sql_text("CURRENT_TIMESTAMP"))
+
+
+def file_pending() -> ColumnElement[bool]:
+    return and_(Message.has_media, Message.media_path.is_(None), Message.media_type.is_distinct_from("other"))

@@ -1,7 +1,7 @@
 import asyncio
 from datetime import UTC, datetime
 
-from sqlalchemy import Engine
+from sqlalchemy import Engine, select
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session
 
@@ -45,17 +45,29 @@ class FakeDownloader:
         self.tasks[chat_id] = asyncio.create_task(self.simulate(chat_id))
 
     async def simulate(self, chat_id: int) -> None:
-        await self.api.publish(chat_id, download_state(0, None, None, False))
+        await self.api.publish(chat_id, download_state(0, None, None, 0, 0, False))
+        with Session(self.engine) as session:
+            media = bool(session.scalar(select(Chat.download_media).where(Chat.chat_id == chat_id)))
+        files = 0
+        pending = 0
         first_message_date = self.chats[chat_id][2]
         start = datetime.now(UTC).replace(microsecond=0)
         history = start - first_message_date
         for step in range(1, STEPS + 1):
             await asyncio.sleep(self.step_seconds)
             newest = first_message_date + history * step / STEPS
+            if media:
+                files = 10 * step
+                pending = 10 * STEPS - files
             await self.api.publish(
                 chat_id,
                 download_state(
-                    100 * step, first_message_date.isoformat(), newest.replace(microsecond=0).isoformat(), step == STEPS
+                    100 * step,
+                    first_message_date.isoformat(),
+                    newest.replace(microsecond=0).isoformat(),
+                    files,
+                    pending,
+                    step == STEPS,
                 ),
             )
 

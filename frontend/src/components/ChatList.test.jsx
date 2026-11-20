@@ -153,7 +153,7 @@ describe('ChatList', () => {
     expect(screen.getByText('Chat with download')).toBeInTheDocument();
     expect(screen.getByText('⏳')).toBeInTheDocument();
     // Should include time in format
-    expect(screen.getByText(/Jan 1, 2024 - Jan 24, 2024, \d{2}:\d{2} \(100\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Jan 1, 2024 - Jan 24, 2024, \d{2}:\d{2}/)).toBeInTheDocument();
   });
 
   it('handles empty search query showing all chats', () => {

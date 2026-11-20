@@ -5,16 +5,23 @@ import { useAsyncDialogAction } from './hooks/useAsyncDialogAction';
 import { ErrorDialog } from './components/ErrorDialog';
 import { ChatList } from './components/ChatList';
 import { ChatDetails } from './components/ChatDetails';
+import { ChatTabs, chatsOfTab, visibleTabs } from './components/ChatTabs';
 import { useChats } from './hooks/useChats';
 
 function App() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTab, setSelectedTab] = useState('all');
   const [selectedChatId, setSelectedChatId] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [downloadDialog, setDownloadDialog] = useState(null);
   const { call, isConnected, connectionState } = useRPC();
   const { executeAction, loading: saveLoading, error: saveError, clearError } = useAsyncDialogAction();
   const { chats, loading, loadChats } = useChats();
+
+  let activeTab = selectedTab;
+  if (!visibleTabs(chats).some(tab => tab.id === activeTab)) {
+    activeTab = 'all';
+  }
 
   // Get selected chat object from chats array
   const selectedChat = selectedChatId
@@ -114,15 +121,10 @@ function App() {
           </div>
         </div>
 
-        <div className="tabs">
-          <button className="tab tab-active">
-            All
-            <span className="tab-badge">{chats.length}</span>
-          </button>
-        </div>
+        <ChatTabs chats={chats} activeTab={activeTab} onSelect={setSelectedTab} />
 
         <ChatList
-          chats={chats}
+          chats={chatsOfTab(chats, activeTab)}
           loading={loading}
           isConnected={isConnected}
           connectionState={connectionState}

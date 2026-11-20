@@ -83,8 +83,9 @@ body {
   display: flex;
   padding: 0 10px;
   background: #fff;
-  border-bottom: 1px solid #e8e8e8;
+  box-shadow: inset 0 -1px #dadce0;
   overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .tab {
@@ -95,7 +96,7 @@ body {
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
-  border-bottom: 2px solid transparent;
+  position: relative;
   white-space: nowrap;
   display: flex;
   align-items: center;
@@ -109,7 +110,20 @@ body {
 
 .tab-active {
   color: #3390ec;
-  border-bottom-color: #3390ec;
+}
+
+/* The lower half of the indicator falls outside the tab bar and is clipped. Its translucency
+   lets the bar's bottom line show through as a darker stripe. */
+.tab-active::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: -3px;
+  height: 6px;
+  border-radius: 2px;
+  background: rgba(51, 144, 236, 0.85);
+  pointer-events: none;
 }
 
 .tab-badge {

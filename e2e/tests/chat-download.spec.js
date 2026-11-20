@@ -39,10 +39,13 @@ test('shows the download progress of a chat and then its completion', async ({ p
   await expect(details).toContainText('Messages:');
 
   await expect(item).toContainText('✓', { timeout: 15_000 });
-  await expect(item).toContainText('(1,000)');
-  await expect(item).toContainText('📎 100/100');
+  await expect(item).not.toContainText('1,000');
   await expect(details).toContainText('The chat is downloaded');
-  await expect(details).toContainText('Files:');
+  await expect(details).toContainText('1,000');
+  await expect(details).toContainText('100/100');
+
+  await page.getByRole('button', { name: /^Downloaded/ }).click();
+  await expect(item).toBeVisible();
 });
 
 test('keeps the saved Download Media value', async ({ page }) => {

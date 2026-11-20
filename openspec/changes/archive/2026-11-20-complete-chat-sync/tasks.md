@@ -52,7 +52,7 @@
 
 - [x] 7.1 Run the Python tests, mypy, `ruff check`, `ruff format --check`, and the UI unit tests with the commands in `README.md`. Verify that each command passes.
 - [x] 7.2 Run the end-to-end tests with `docker compose -f e2e/compose.yaml run --rm --build e2e`. Verify that they pass.
-- [ ] 7.3 Ask the user to run the live check with their account: `docker compose up --build`. Verify in the log that each chat gets one `before` history request at the first start, that the two supergroups stored from messages 3328 and 1879 download their older history, and that every chat completes within minutes. Then verify: media on for a chat with stored photos saves the files newest first, and the UI shows `📎` progress; media off stops after the current file; media on again continues without a repeated file; a message in a complete chat causes two history requests and a report; an edit in the main app adds a row to `message_versions`; `select count(*) from chats where downloaded = 0` reaches 0.
+- [x] 7.3 Ask the user to run the live check with their account: `docker compose up --build`. Verify in the log that each chat gets one `before` history request at the first start, that the two supergroups stored from messages 3328 and 1879 download their older history, and that every chat completes within minutes. Then verify: media on for a chat with stored photos saves the files newest first, and the UI shows `📎` progress; media off stops after the current file; media on again continues without a repeated file; a message in a complete chat causes two history requests and a report; an edit in the main app adds a row to `message_versions`; `select count(*) from chats where downloaded = 0` reaches 0.
 
 ## Workflow follow-up
 

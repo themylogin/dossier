@@ -28,7 +28,7 @@ Each chat that the backend sends SHALL have `id` (the Telegram chat id, an integ
 - **AND** `state` has the members `messages_count`, `oldest_message_date`, `newest_message_date`, and `complete`
 
 ### Requirement: Download state format
-A download state SHALL have `messages_count` (an integer), `oldest_message_date` and `newest_message_date` (a string or `null`), and `complete`. `complete` SHALL be `false` while the downloader downloads the chat, `true` when the download is complete, and `null` when no connected downloader reports the chat. Each date SHALL be an ISO 8601 date-time with a UTC offset, such as `2026-05-22T10:30:00+00:00` or `2026-05-22T10:30:00Z`.
+A download state SHALL have `messages_count` (an integer), `oldest_message_date` and `newest_message_date` (a string or `null`), `files_count` and `files_pending` (integers), `downloaded` (a boolean), and `complete`. `downloaded` SHALL be `true` when the stored history of the chat reaches its first message. `complete` SHALL be `false` while the downloader downloads the chat, `true` when the download is complete, and `null` when no connected downloader reports the chat. Each date SHALL be an ISO 8601 date-time with a UTC offset, such as `2026-05-22T10:30:00+00:00` or `2026-05-22T10:30:00Z`.
 
 #### Scenario: Dates carry an offset
 - **WHEN** the backend sends a download state that has dates
@@ -37,6 +37,7 @@ A download state SHALL have `messages_count` (an integer), `oldest_message_date`
 #### Scenario: No messages yet
 - **WHEN** the backend sends the state of a download that has no messages yet
 - **THEN** `messages_count` is `0` and both dates are `null`
+- **AND** `files_count` and `files_pending` are `0`
 
 #### Scenario: No downloader
 - **GIVEN** no downloader is connected to the backend
@@ -44,7 +45,7 @@ A download state SHALL have `messages_count` (an integer), `oldest_message_date`
 - **THEN** `complete` is `null`
 
 ### Requirement: List chats
-The `list_chats` method SHALL take no params. It SHALL return `{"chats": [...]}` with every chat in the downloader's database, its stored settings, and the latest state from the connected downloader. A chat without such a state SHALL have the state of its stored messages: their count, the dates of the oldest and the newest of them, and `complete` `null`.
+The `list_chats` method SHALL take no params. It SHALL return `{"chats": [...]}` with every chat in the downloader's database, its stored settings, and the latest state from the connected downloader. A chat without such a state SHALL have the state of its stored messages: their count, the dates of the oldest and the newest of them, `files_count` and `files_pending` by the rules of the downloader, its stored `downloaded` mark, and `complete` `null`.
 
 #### Scenario: Client lists chats
 - **WHEN** a client calls `list_chats` without params
@@ -68,6 +69,12 @@ The `list_chats` method SHALL take no params. It SHALL return `{"chats": [...]}`
 - **AND** the downloader reported the chat with `messages_count` `7` and `"complete": true`
 - **WHEN** a client calls `list_chats`
 - **THEN** the chat has `messages_count` `7` and `"complete": true`
+
+#### Scenario: Stored file counts
+- **GIVEN** the database holds 4 messages of a chat with media: 1 with a saved file, 1 with `media_type` `other`, and 2 without a file
+- **AND** the downloader has not reported the chat
+- **WHEN** a client calls `list_chats`
+- **THEN** the chat has `files_count` `1` and `files_pending` `2`
 
 ### Requirement: Update chat settings
 The `update_chat` method SHALL take `{"id": <chat id>, "settings": {"media": <boolean>}}`. It SHALL store the settings in the downloader's database and return the updated chat object. The state of that chat object SHALL follow the rules of `list_chats`.

@@ -58,7 +58,7 @@ describe('ChatListItem', () => {
 
     expect(screen.queryByText('⏳')).not.toBeInTheDocument();
     expect(screen.queryByText('✓')).not.toBeInTheDocument();
-    expect(screen.getByText(/Jan 1, 2024 - Jan 24, 2024, \d{2}:\d{2} \(100\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Jan 1, 2024 - Jan 24, 2024, \d{2}:\d{2}/)).toBeInTheDocument();
   });
 
   it('renders download info when download is active', () => {
@@ -101,7 +101,7 @@ describe('ChatListItem', () => {
 
     // Should show formatted date range with time and count
     // Format: "Jun 1, 2023 - Jan 24, 2024, HH:MM (1,500)"
-    const downloadInfo = screen.getByText(/Jun 1, 2023 - Jan 24, 2024, \d{2}:\d{2} \(1,500\)/);
+    const downloadInfo = screen.getByText(/Jun 1, 2023 - Jan 24, 2024, \d{2}:\d{2}/);
     expect(downloadInfo).toBeInTheDocument();
   });
 
@@ -124,7 +124,7 @@ describe('ChatListItem', () => {
     expect(screen.getByText('✓')).toBeInTheDocument();
 
     // Should show formatted date range with time and count
-    const downloadInfo = screen.getByText(/Jun 1, 2023 - Jan 24, 2024, \d{2}:\d{2} \(2,500\)/);
+    const downloadInfo = screen.getByText(/Jun 1, 2023 - Jan 24, 2024, \d{2}:\d{2}/);
     expect(downloadInfo).toBeInTheDocument();
   });
 
@@ -144,7 +144,7 @@ describe('ChatListItem', () => {
     render(<ChatListItem chat={chat} {...defaultProps} />);
 
     // Should show ? for missing dates
-    expect(screen.getByText(/\? - \? \(10\)/)).toBeInTheDocument();
+    expect(screen.getByText(/\? - \?/)).toBeInTheDocument();
   });
 
   it('calls onContextMenu when right-clicked', () => {
@@ -193,7 +193,7 @@ describe('ChatListItem', () => {
     expect(screen.getByText('Unnamed Chat')).toBeInTheDocument();
   });
 
-  it('formats large message counts with commas and shows time', () => {
+  it('shows no message count', () => {
     const chat = {
       id: 123,
       name: 'Test Chat',
@@ -209,7 +209,8 @@ describe('ChatListItem', () => {
     render(<ChatListItem chat={chat} {...defaultProps} />);
 
     // Should have comma-separated count and time format
-    expect(screen.getByText(/Jan 1, 2023 - Jan 1, 2024, \d{2}:\d{2} \(123,456\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Jan 1, 2023 - Jan 1, 2024, \d{2}:\d{2}/)).toBeInTheDocument();
+    expect(screen.queryByText(/123,456/)).not.toBeInTheDocument();
   });
 
   it('handles download with missing state gracefully', () => {
@@ -242,7 +243,7 @@ describe('ChatListItem', () => {
 
     render(<ChatListItem chat={chat} {...defaultProps} />);
 
-    expect(screen.getByText(/May 1, 2026 - May 22, 2026, 08:30 \(100\)/)).toBeInTheDocument();
+    expect(screen.getByText(/May 1, 2026 - May 22, 2026, 08:30/)).toBeInTheDocument();
   });
 
   it('shows Z and +00:00 dates as the same time', () => {
@@ -276,7 +277,7 @@ describe('ChatListItem', () => {
       </>
     );
 
-    expect(screen.getAllByText(/May 22, 2026, 10:30 \(100\)/)).toHaveLength(2);
+    expect(screen.getAllByText(/May 22, 2026, 10:30/)).toHaveLength(2);
   });
 
   it('shows ? for a missing or invalid date', () => {
@@ -294,10 +295,10 @@ describe('ChatListItem', () => {
 
     render(<ChatListItem chat={chat} {...defaultProps} />);
 
-    expect(screen.getByText(/\? - \? \(10\)/)).toBeInTheDocument();
+    expect(screen.getByText(/\? - \?/)).toBeInTheDocument();
   });
 
-  it('shows the media progress when the chat has files', () => {
+  it('shows no media progress even with files', () => {
     const chat = {
       id: 123,
       name: 'Test Chat',
@@ -309,26 +310,6 @@ describe('ChatListItem', () => {
         files_count: 1200,
         files_pending: 300,
         complete: false
-      }
-    };
-
-    render(<ChatListItem chat={chat} {...defaultProps} />);
-
-    expect(screen.getByText(/📎 1,200\/1,500/)).toBeInTheDocument();
-  });
-
-  it('shows no media progress when the chat has no files', () => {
-    const chat = {
-      id: 123,
-      name: 'Test Chat',
-      settings: { media: false },
-      state: {
-        messages_count: 2000,
-        oldest_message_date: '2024-01-01T00:00:00Z',
-        newest_message_date: '2024-01-24T00:00:00Z',
-        files_count: 0,
-        files_pending: 0,
-        complete: true
       }
     };
 
@@ -355,27 +336,7 @@ describe('ChatListItem', () => {
 
     const { container } = render(<ChatListItem chat={chat} {...defaultProps} />);
 
-    expect(container.querySelector('.download-info').textContent).toMatch(/^✓ Jan 24, 2024, \d{2}:\d{2} \(2,000\)$/);
+    expect(container.querySelector('.download-info').textContent).toMatch(/^✓ Jan 24, 2024, \d{2}:\d{2}$/);
   });
 
-  it('shows no media progress when media is off', () => {
-    const chat = {
-      id: 123,
-      name: 'Test Chat',
-      settings: { media: false },
-      state: {
-        messages_count: 2000,
-        oldest_message_date: '2024-01-01T00:00:00Z',
-        newest_message_date: '2024-01-24T00:00:00Z',
-        files_count: 1200,
-        files_pending: 300,
-        downloaded: true,
-        complete: true
-      }
-    };
-
-    render(<ChatListItem chat={chat} {...defaultProps} />);
-
-    expect(screen.queryByText(/📎/)).not.toBeInTheDocument();
-  });
 });

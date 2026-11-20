@@ -20,7 +20,7 @@
 
 - [x] 3.1 Run the Python tests, mypy, `ruff check`, and `ruff format --check` with the commands in `README.md`. Verify that each command passes.
 - [x] 3.2 Run the end-to-end tests with `docker compose -f e2e/compose.yaml run --rm --build e2e`. Verify that they pass. They use the fake downloader, so they show that the UI and the backend still work.
-- [ ] 3.3 Ask the user to run the live check with their account. If `DATA_DIR` holds no `dossier_bot.session`, they first run `docker compose run --rm downloader login`. They start the stack with `docker compose up --build` and wait for the start-up download to end. Then they join a broadcast channel in the main Telegram app. Verify that the downloader log shows a dialog read and the download of the channel. Verify that, after a page reload, the UI shows the channel with `✓`. Repeat with a small group or a new private chat. Verify that each chat that the log puts into `outside` is a chat that the user left.
+- [x] 3.3 Ask the user to run the live check with their account. If `DATA_DIR` holds no `dossier_bot.session`, they first run `docker compose run --rm downloader login`. They start the stack with `docker compose up --build` and wait for the start-up download to end. Then they join a broadcast channel in the main Telegram app. Verify that the downloader log shows a dialog read and the download of the channel. Verify that, after a page reload, the UI shows the channel with `✓`. Repeat with a small group or a new private chat. Verify that each chat that the log puts into `outside` is a chat that the user left.
 
 ## Workflow follow-up
 

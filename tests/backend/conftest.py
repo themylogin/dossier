@@ -34,7 +34,9 @@ def database_path(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def client(database_path: Path) -> Iterator[TestClient]:
-    with TestClient(create_app(f"sqlite:///{database_path}", "ws://127.0.0.1:9")) as test_client:
+    with TestClient(
+        create_app(f"sqlite:///{database_path}", "ws://127.0.0.1:9", None, database_path.parent)
+    ) as test_client:
         yield test_client
 
 
@@ -82,6 +84,8 @@ def fake_downloader(database_path: Path) -> Iterator[FakeDownloaderServer]:
 @pytest.fixture
 def linked_client(database_path: Path, fake_downloader: FakeDownloaderServer) -> Iterator[TestClient]:
     url = f"sqlite:///{database_path}"
-    with TestClient(create_app(url, f"ws://127.0.0.1:{fake_downloader.port}")) as test_client:
+    with TestClient(
+        create_app(url, f"ws://127.0.0.1:{fake_downloader.port}", None, database_path.parent)
+    ) as test_client:
         wait_for_link(test_client, 200)
         yield test_client

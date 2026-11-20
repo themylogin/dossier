@@ -152,11 +152,11 @@ def test_media_that_is_not_a_boolean_gets_invalid_params(client: TestClient) -> 
 
 def test_settings_survive_a_restart(database_path: Path) -> None:
     url = f"sqlite:///{database_path}"
-    with TestClient(create_app(url, "ws://127.0.0.1:9")) as first_run:
+    with TestClient(create_app(url, "ws://127.0.0.1:9", None, database_path.parent)) as first_run:
         with first_run.websocket_connect("/api/ws_jsonrpc") as websocket:
             request(websocket, "update_chat", {"id": 1001, "settings": {"media": True}}, request_id=2)
 
-    with TestClient(create_app(url, "ws://127.0.0.1:9")) as second_run:
+    with TestClient(create_app(url, "ws://127.0.0.1:9", None, database_path.parent)) as second_run:
         with second_run.websocket_connect("/api/ws_jsonrpc") as websocket:
             chats = list_chats(websocket)
 

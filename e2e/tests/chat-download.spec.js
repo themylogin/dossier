@@ -66,3 +66,15 @@ test('keeps the saved Download Media value', async ({ page }) => {
   await openDownloadSettings(page, item);
   await expect(checkbox).toBeChecked();
 });
+
+test('reports a request when OpenClaw is not configured', async ({ page }) => {
+  await page.goto('/');
+
+  const items = page.locator('[data-testid^="chat-item-"]');
+  await items.first().click();
+  await page.getByLabel('Request').fill('Summarize\nthe decisions');
+  await page.getByRole('button', { name: 'Submit' }).click();
+
+  await expect(page.locator('.chat-details')).toContainText('OpenClaw is not configured');
+  await expect(page.getByLabel('Request')).toHaveValue('Summarize\nthe decisions');
+});

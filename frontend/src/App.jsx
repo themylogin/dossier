@@ -78,6 +78,9 @@ function App() {
     }
   };
 
+  const handleSubmitRequest = (chatId, text) =>
+    call('submit_request', { id: chatId, text }, { timeout: 120000 });
+
   const handleDialogCancel = () => {
     setDownloadDialog(null);
   };
@@ -140,6 +143,7 @@ function App() {
       <div className="main-content">
         <ChatDetails
           selectedChat={selectedChat}
+          onSubmitRequest={handleSubmitRequest}
         />
       </div>
 

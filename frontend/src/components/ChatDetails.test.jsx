@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { ChatDetails } from './ChatDetails';
 
 describe('ChatDetails', () => {
@@ -305,5 +305,53 @@ describe('ChatDetails', () => {
     render(<ChatDetails {...defaultProps} selectedChat={chat} />);
 
     expect(screen.queryByText('Files:')).not.toBeInTheDocument();
+  });
+
+  describe('request form', () => {
+    const chat = {
+      id: -2001,
+      name: 'Family',
+      settings: { media: false },
+      state: {
+        messages_count: 3,
+        oldest_message_date: '2024-01-01T00:00:00Z',
+        newest_message_date: '2024-01-03T00:00:00Z',
+        downloaded: true,
+        complete: true
+      }
+    };
+
+    it('submits the text and clears the field', async () => {
+      const onSubmitRequest = vi.fn().mockResolvedValue({ run_id: 'run-1', file: '/x.sqlite' });
+      render(<ChatDetails selectedChat={chat} onSubmitRequest={onSubmitRequest} />);
+      const field = screen.getByLabelText('Request');
+
+      fireEvent.change(field, { target: { value: 'Summarize\nthe decisions' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+      expect(await screen.findByText('Submitted to OpenClaw')).toBeInTheDocument();
+      expect(onSubmitRequest).toHaveBeenCalledWith(-2001, 'Summarize\nthe decisions');
+      expect(field).toHaveValue('');
+    });
+
+    it('shows the error and keeps the text', async () => {
+      const onSubmitRequest = vi.fn().mockRejectedValue(new Error('OpenClaw is not configured'));
+      render(<ChatDetails selectedChat={chat} onSubmitRequest={onSubmitRequest} />);
+      const field = screen.getByLabelText('Request');
+
+      fireEvent.change(field, { target: { value: 'Summarize' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+      expect(await screen.findByText('OpenClaw is not configured')).toBeInTheDocument();
+      expect(field).toHaveValue('Summarize');
+    });
+
+    it('disables Submit while the field holds only spaces', () => {
+      render(<ChatDetails selectedChat={chat} onSubmitRequest={vi.fn()} />);
+
+      fireEvent.change(screen.getByLabelText('Request'), { target: { value: '   ' } });
+
+      expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
+    });
   });
 });

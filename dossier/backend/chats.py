@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field, StrictBool, StrictInt
+from pydantic import BaseModel, Field, StrictBool, StrictInt, StrictStr
 
 
 class ChatSettings(BaseModel):
@@ -22,6 +22,11 @@ class Chat(BaseModel):
     name: str
     settings: ChatSettings
     state: DownloadState = Field(default_factory=DownloadState)
+
+
+class SubmitRequestParams(BaseModel):
+    id: StrictInt
+    text: StrictStr
 
 
 class UpdateChatParams(BaseModel):

@@ -43,6 +43,20 @@ Stop them:
 docker compose down
 ```
 
+## OpenClaw
+
+The details panel of a chat has a request field. `Submit` writes the chat into a new SQLite file in a shared folder, with its messages, their earlier versions, and their users. Then it sends your text and the path of the file to `/hooks/agent` of your OpenClaw Gateway. The agent answers where it normally answers, not in Dossier.
+
+Set these keys in `.env`:
+
+- `OPENCLAW_URL`: the URL of the OpenClaw Gateway.
+- `OPENCLAW_HOOK_TOKEN`: the `hooks.token` of the OpenClaw config.
+- `OPENCLAW_AGENT_ID`: the agent that gets the requests. Leave it empty for the default agent.
+- `OPENCLAW_EXPORT_DIR`: the shared folder on this machine. The default is `./exports`.
+- `OPENCLAW_EXPORT_PATH`: the same folder as the OpenClaw agent sees it.
+
+`Submit` reports `OpenClaw is not configured` while `OPENCLAW_URL`, `OPENCLAW_HOOK_TOKEN`, or `OPENCLAW_EXPORT_PATH` is empty. The export files stay in the folder until you delete them.
+
 ## Test
 
 Run the Python tests of the downloader and the backend:

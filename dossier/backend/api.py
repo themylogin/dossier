@@ -1,3 +1,7 @@
+from datetime import UTC, datetime
+from pathlib import Path
+import sqlite3
+
 from fastapi.concurrency import run_in_threadpool
 from jsonrpcserver import Error, InvalidParams, Result, Success
 from pydantic import ValidationError
@@ -5,17 +9,27 @@ from sqlalchemy import ColumnElement, Engine, func, select
 from sqlalchemy.orm import Session
 
 from dossier import models
-from dossier.backend.chats import Chat, ChatSettings, DownloadState, UpdateChatParams
+from dossier.backend.chats import Chat, ChatSettings, DownloadState, SubmitRequestParams, UpdateChatParams
 from dossier.backend.downloader_api import DownloaderApiClient
+from dossier.backend.openclaw import OpenClawError, OpenClawSettings, export_chat, submit
 from dossier.backend.progress import ProgressHub
 from dossier.downloader.api import ChatStateJson, DownloadStateJson
 
 
 class BackendApi:
-    def __init__(self, engine: Engine, hub: ProgressHub, downloader_api: DownloaderApiClient) -> None:
+    def __init__(
+        self,
+        engine: Engine,
+        hub: ProgressHub,
+        downloader_api: DownloaderApiClient,
+        openclaw: OpenClawSettings | None,
+        exports_dir: Path,
+    ) -> None:
         self.engine = engine
         self.hub = hub
         self.downloader_api = downloader_api
+        self.openclaw = openclaw
+        self.exports_dir = exports_dir
         self.states: dict[int, DownloadState] = {}
 
     def read_chats(self, *conditions: ColumnElement[bool]) -> list[Chat]:
@@ -85,6 +99,31 @@ class BackendApi:
         await self.downloader_api.settings_changed(params.id)
         chats = await run_in_threadpool(self.read_chats, models.Chat.chat_id == params.id)
         return Success(chats[0].model_dump(mode="json"))
+
+    def chat_name(self, chat_id: int) -> str | None:
+        with Session(self.engine) as session:
+            return session.scalar(select(models.Chat.name).where(models.Chat.chat_id == chat_id))
+
+    async def submit_request(self, id: object, text: object) -> Result:
+        try:
+            params = SubmitRequestParams.model_validate({"id": id, "text": text})
+        except ValidationError:
+            return InvalidParams()
+        if not params.text.strip():
+            return InvalidParams()
+        name = await run_in_threadpool(self.chat_name, params.id)
+        if name is None:
+            return Error(-32602, f"Chat {params.id} not found")
+        if self.openclaw is None:
+            return Error(-32000, "OpenClaw is not configured")
+        database_path = Path(str(self.engine.url.database))
+        try:
+            path = await run_in_threadpool(export_chat, database_path, self.exports_dir, params.id, datetime.now(UTC))
+            file = self.openclaw.export_path / path.name
+            run_id = await run_in_threadpool(submit, self.openclaw, params.text, name, params.id, file)
+        except (OpenClawError, sqlite3.Error) as error:
+            return Error(-32000, str(error))
+        return Success({"run_id": run_id, "file": str(file)})
 
     async def downloader_disconnected(self) -> None:
         chat_ids = list(self.states)

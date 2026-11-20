@@ -2,6 +2,7 @@ import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 import os
+from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
@@ -9,14 +10,15 @@ from jsonrpcserver import async_dispatch
 
 from dossier.backend.api import BackendApi
 from dossier.backend.downloader_api import DownloaderApiClient
+from dossier.backend.openclaw import OpenClawSettings, load_openclaw_settings
 from dossier.backend.progress import ProgressHub
 from dossier.database import create_database_engine
 
 
-def create_app(database_url: str, downloader_url: str) -> FastAPI:
+def create_app(database_url: str, downloader_url: str, openclaw: OpenClawSettings | None, exports_dir: Path) -> FastAPI:
     hub = ProgressHub()
     downloader_api = DownloaderApiClient(downloader_url)
-    api = BackendApi(create_database_engine(database_url), hub, downloader_api)
+    api = BackendApi(create_database_engine(database_url), hub, downloader_api, openclaw, exports_dir)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -48,7 +50,11 @@ def create_app(database_url: str, downloader_url: str) -> FastAPI:
                 while True:
                     reply = await async_dispatch(
                         await websocket.receive_text(),
-                        methods={"list_chats": api.list_chats, "update_chat": api.update_chat},
+                        methods={
+                            "list_chats": api.list_chats,
+                            "update_chat": api.update_chat,
+                            "submit_request": api.submit_request,
+                        },
                     )
                     if reply:
                         await websocket.send_text(reply)
@@ -58,4 +64,9 @@ def create_app(database_url: str, downloader_url: str) -> FastAPI:
     return app
 
 
-app = create_app("sqlite:////data/messages.db", os.environ.get("DOWNLOADER_URL", "ws://downloader:8090"))
+app = create_app(
+    "sqlite:////data/messages.db",
+    os.environ.get("DOWNLOADER_URL", "ws://downloader:8090"),
+    load_openclaw_settings(os.environ),
+    Path("/exports"),
+)

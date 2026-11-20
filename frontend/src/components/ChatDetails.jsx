@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { formatDate } from '../dates';
 
 function DateStat({ state }) {
@@ -33,6 +33,46 @@ function FilesStat({ state, media }) {
   );
 }
 
+function RequestForm({ chatId, onSubmitRequest }) {
+  const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+  const [status, setStatus] = useState(null);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setSending(true);
+    setStatus(null);
+    try {
+      await onSubmitRequest(chatId, text);
+      setText('');
+      setStatus('Submitted to OpenClaw');
+    } catch (error) {
+      setStatus(error.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <form className="request-form" onSubmit={handleSubmit}>
+      <textarea
+        className="request-text"
+        aria-label="Request"
+        placeholder="Ask OpenClaw about this chat"
+        rows={4}
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+      />
+      <div className="request-footer">
+        <button type="submit" className="dialog-button dialog-button-primary" disabled={sending || !text.trim()}>
+          Submit
+        </button>
+        {status && <span className="request-status">{status}</span>}
+      </div>
+    </form>
+  );
+}
+
 /**
  * Chat details panel component
  *
@@ -41,7 +81,7 @@ function FilesStat({ state, media }) {
  * @param {Object} props
  * @param {Object|null} props.selectedChat - The currently selected chat
  */
-export function ChatDetails({ selectedChat }) {
+export function ChatDetails({ selectedChat, onSubmitRequest }) {
   // No chat selected
   if (!selectedChat) {
     return (
@@ -79,6 +119,7 @@ export function ChatDetails({ selectedChat }) {
                 <FilesStat state={state} media={selectedChat.settings?.media} />
               </div>
             </div>
+            <RequestForm key={selectedChat.id} chatId={selectedChat.id} onSubmitRequest={onSubmitRequest} />
           </div>
         </div>
       </div>
@@ -108,6 +149,7 @@ export function ChatDetails({ selectedChat }) {
               <FilesStat state={state} media={selectedChat.settings?.media} />
             </div>
           </div>
+          <RequestForm key={selectedChat.id} chatId={selectedChat.id} onSubmitRequest={onSubmitRequest} />
         </div>
       </div>
     </div>

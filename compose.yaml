@@ -30,8 +30,13 @@ services:
     command: ["uvicorn", "dossier.backend.main:app", "--host", "0.0.0.0", "--port", "8080"]
     environment:
       DOWNLOADER_URL: ws://downloader:8090
+      OPENCLAW_URL: ${OPENCLAW_URL:-}
+      OPENCLAW_HOOK_TOKEN: ${OPENCLAW_HOOK_TOKEN:-}
+      OPENCLAW_AGENT_ID: ${OPENCLAW_AGENT_ID:-}
+      OPENCLAW_EXPORT_PATH: ${OPENCLAW_EXPORT_PATH:-}
     volumes:
       - ${DATA_DIR:-./data}:/data
+      - ${OPENCLAW_EXPORT_DIR:-./exports}:/exports
     depends_on:
       migrate:
         condition: service_completed_successfully

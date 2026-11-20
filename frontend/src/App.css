@@ -394,6 +394,7 @@ body {
 .chat-details-body {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 40px;
@@ -831,4 +832,41 @@ body {
   .chat-item {
     padding: 8px 10px;
   }
+}
+
+/* Request form */
+.request-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 500px;
+  margin-top: 24px;
+}
+
+.request-text {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 15px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.request-text:focus {
+  outline: none;
+  border-color: #3390ec;
+}
+
+.request-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.request-status {
+  color: #707579;
+  font-size: 14px;
 }

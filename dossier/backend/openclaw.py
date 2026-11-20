@@ -5,6 +5,7 @@ import json
 from pathlib import Path, PurePosixPath
 import sqlite3
 from urllib.error import HTTPError
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 import uuid
 
@@ -61,12 +62,25 @@ def export_chat(database_path: Path, exports_dir: Path, chat_id: int, now: datet
     return path
 
 
-def submit(settings: OpenClawSettings, text: str, chat_name: str, chat_id: int, file_path: PurePosixPath) -> str:
+def session_url(settings: OpenClawSettings, session_key: str) -> str:
+    path = "/".join(quote(part, safe="") for part in session_key.split(":"))
+    return f"{settings.url}/chat/{settings.agent_id or 'main'}/{path}"
+
+
+def submit(
+    settings: OpenClawSettings, text: str, chat_name: str, chat_id: int, file_path: PurePosixPath, session_key: str
+) -> str:
     message = (
         f'{text}\n\nThe Telegram chat "{chat_name}" (id {chat_id}) is in the SQLite database {file_path}. '
         "Its tables are chats, messages, message_versions (earlier versions of edited messages), and users."
     )
-    body = {"message": message, "name": "Dossier"}
+    body: dict[str, object] = {
+        "message": message,
+        "name": "Dossier",
+        "sessionMode": "persistent",
+        "sessionKey": session_key,
+        "deliver": False,
+    }
     if settings.agent_id:
         body["agentId"] = settings.agent_id
     request = Request(

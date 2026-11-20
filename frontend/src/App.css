@@ -866,6 +866,12 @@ body {
   gap: 12px;
 }
 
+.request-link {
+  color: #3390ec;
+  font-size: 14px;
+  font-weight: 500;
+}
+
 .request-status {
   color: #707579;
   font-size: 14px;

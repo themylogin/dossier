@@ -322,7 +322,8 @@ describe('ChatDetails', () => {
     };
 
     it('submits the text and clears the field', async () => {
-      const onSubmitRequest = vi.fn().mockResolvedValue({ run_id: 'run-1', file: '/x.sqlite' });
+      const sessionUrl = 'https://openclaw.example.com/chat/main/dossier/-2001/2026-05-22_10-30-00';
+      const onSubmitRequest = vi.fn().mockResolvedValue({ run_id: 'run-1', file: '/x.sqlite', session_url: sessionUrl });
       render(<ChatDetails selectedChat={chat} onSubmitRequest={onSubmitRequest} />);
       const field = screen.getByLabelText('Request');
 
@@ -332,6 +333,9 @@ describe('ChatDetails', () => {
       expect(await screen.findByText('Submitted to OpenClaw')).toBeInTheDocument();
       expect(onSubmitRequest).toHaveBeenCalledWith(-2001, 'Summarize\nthe decisions');
       expect(field).toHaveValue('');
+      const link = screen.getByRole('link', { name: 'Open in OpenClaw' });
+      expect(link).toHaveAttribute('href', sessionUrl);
+      expect(link).toHaveAttribute('target', '_blank');
     });
 
     it('shows the error and keeps the text', async () => {

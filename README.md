@@ -55,6 +55,15 @@ Set these keys in `.env`:
 - `OPENCLAW_EXPORT_DIR`: the shared folder on this machine. The default is `./exports`.
 - `OPENCLAW_EXPORT_PATH`: the same folder as the OpenClaw agent sees it.
 
+Each `Submit` starts a new OpenClaw session and shows a link, `Open in OpenClaw`, to that session in the OpenClaw web UI. There you read the answer and continue the conversation. OpenClaw accepts the session name of Dossier only when its config allows it:
+
+```json5
+hooks: {
+  allowRequestSessionKey: true,
+  allowedSessionKeyPrefixes: ["dossier:"]
+}
+```
+
 `Submit` reports `OpenClaw is not configured` while `OPENCLAW_URL`, `OPENCLAW_HOOK_TOKEN`, or `OPENCLAW_EXPORT_PATH` is empty. The export files stay in the folder until you delete them.
 
 ## Test

@@ -37,15 +37,18 @@ function RequestForm({ chatId, onSubmitRequest }) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [status, setStatus] = useState(null);
+  const [sessionUrl, setSessionUrl] = useState(null);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setSending(true);
     setStatus(null);
+    setSessionUrl(null);
     try {
-      await onSubmitRequest(chatId, text);
+      const result = await onSubmitRequest(chatId, text);
       setText('');
       setStatus('Submitted to OpenClaw');
+      setSessionUrl(result.session_url);
     } catch (error) {
       setStatus(error.message);
     } finally {
@@ -68,6 +71,11 @@ function RequestForm({ chatId, onSubmitRequest }) {
           Submit
         </button>
         {status && <span className="request-status">{status}</span>}
+        {sessionUrl && (
+          <a className="request-link" href={sessionUrl} target="_blank" rel="noopener noreferrer">
+            Open in OpenClaw
+          </a>
+        )}
       </div>
     </form>
   );

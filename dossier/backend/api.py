@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from dossier import models
 from dossier.backend.chats import Chat, ChatSettings, DownloadState, SubmitRequestParams, UpdateChatParams
 from dossier.backend.downloader_api import DownloaderApiClient
-from dossier.backend.openclaw import OpenClawError, OpenClawSettings, export_chat, submit
+from dossier.backend.openclaw import OpenClawError, OpenClawSettings, export_chat, session_url, submit
 from dossier.backend.progress import ProgressHub
 from dossier.downloader.api import ChatStateJson, DownloadStateJson
 
@@ -117,13 +117,15 @@ class BackendApi:
         if self.openclaw is None:
             return Error(-32000, "OpenClaw is not configured")
         database_path = Path(str(self.engine.url.database))
+        now = datetime.now(UTC)
+        session_key = f"dossier:{params.id}:{now:%Y-%m-%d_%H-%M-%S}"
         try:
-            path = await run_in_threadpool(export_chat, database_path, self.exports_dir, params.id, datetime.now(UTC))
+            path = await run_in_threadpool(export_chat, database_path, self.exports_dir, params.id, now)
             file = self.openclaw.export_path / path.name
-            run_id = await run_in_threadpool(submit, self.openclaw, params.text, name, params.id, file)
+            run_id = await run_in_threadpool(submit, self.openclaw, params.text, name, params.id, file, session_key)
         except (OpenClawError, sqlite3.Error) as error:
             return Error(-32000, str(error))
-        return Success({"run_id": run_id, "file": str(file)})
+        return Success({"run_id": run_id, "file": str(file), "session_url": session_url(self.openclaw, session_key)})
 
     async def downloader_disconnected(self) -> None:
         chat_ids = list(self.states)
